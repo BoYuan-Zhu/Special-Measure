@@ -1,4 +1,4 @@
-function val = smcSCM1_MAG(ico, val, rate)
+function val = smcIPSM_LV(ico, val, rate)
 %channel 1 = Field
 %channel 2 = rate
 global smdata;
