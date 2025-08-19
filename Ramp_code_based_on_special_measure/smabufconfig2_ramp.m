@@ -37,10 +37,9 @@ else
     end
 end
 getic = smchaninst(scan.loops(loop).getchan); % Only select getchans with index getchanInd.
-if exist('getchanInd','var') && ~isempty(getchanInd) && any(getchanInd ~= 0)
+if exist('getchanInd','var') && ~isempty(getchanInd) && getchanInd ~= 0
     getic = getic(getchanInd, :);
 end
-
 if strfind(ctrl, 'fast')
     for i = 1:size(getic, 1)
         args = num2cell(config);
