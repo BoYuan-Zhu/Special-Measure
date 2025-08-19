@@ -1,0 +1,173 @@
+function [val, rate] = smcK2450_Ramp(ic, val, rate)
+% Keithley 2450 driver (Source V, Measure I).
+%
+% Channels:
+%   1 - 'Vg'       voltage setpoint
+%   2 - 'Ig'       measured current
+%   3 - 'VgRange'  voltage range
+%   4 - 'VgRead'   voltage readback
+%   5 - 'Iglimit'  current compliance
+%   6 - 'Vg-ramp'  ramp config
+%   7 - 'Ig-buf'   buffered current readout
+%
+% Supported ops (ic(3)):
+%   0 = read
+%   1 = write
+%   3 = retrigger/init
+%   4,5 = arm/config (buffer setup for smrun)
+
+global smdata;
+inst = smdata.inst(ic(1)).data.inst;
+
+setupcmd = [ ...
+    ':ABORt;' ...
+    ':SOURce:FUNCtion:MODE VOLT;' ...
+    ':SENSe:FUNCtion "CURRent";' ...
+    ':SENSe:CURRent:RANGe 1E-3;' ...
+    ':SENSe:CURRent:NPLCycles 5;' ...
+];
+continuesupdatingcmd = [ ...
+    ':SOURce:VOLT:READ:BACK 1;' ...
+    ':TRIG:LOAD "LoopUntilEvent", DISP, 50;' ...
+    ':INIT' ...
+];
+
+switch ic(2)
+    %% ---------------- Vg
+    case 1
+        switch ic(3)
+            case 0
+                fprintf(inst, setupcmd);
+                val = query(inst, ':SOUR:VOLT?', '%s\n','%g');
+                fprintf(inst, continuesupdatingcmd);
+            case 1
+                fprintf(inst, setupcmd);
+                fprintf(inst, sprintf(':SOUR:VOLT %g', val));
+                fprintf(inst, continuesupdatingcmd);
+            case {4,5}
+                val = [];
+            otherwise
+                error('K2450 driver: Unsupported op for Vg');
+        end
+
+    %% ---------------- Ig
+    case 2
+        switch ic(3)
+            case 0
+                fprintf(inst, setupcmd);
+                val = query(inst, ':MEAS:CURR?', '%s\n','%g');
+                fprintf(inst, continuesupdatingcmd);
+            case {4,5}
+                val = [];
+            otherwise
+                error('K2450 driver: Unsupported op for Ig');
+        end
+
+    %% ---------------- VgRange
+    case 3
+        switch ic(3)
+            case 0
+                fprintf(inst, setupcmd);
+                auto = query(inst, ':SOUR:VOLT:RANG:AUTO?', '%s\n','%g');
+                if auto==1
+                    val = 0;
+                else
+                    rng = query(inst, ':SOUR:VOLT:RANG?', '%s\n','%g');
+                    val = rng;
+                end
+                fprintf(inst, continuesupdatingcmd);
+            case 1
+                fprintf(inst, setupcmd);
+                fprintf(inst, sprintf(':SOUR:VOLT:RANG %g', val));
+                fprintf(inst, continuesupdatingcmd);
+            case {4,5}
+                val = [];
+            otherwise
+                error('K2450 driver: Unsupported op for VgRange');
+        end
+
+    %% ---------------- VgRead
+    case 4
+        switch ic(3)
+            case 0
+                fprintf(inst, setupcmd);
+                val = query(inst, ':SOUR:VOLT?', '%s\n','%g');
+                fprintf(inst, continuesupdatingcmd);
+            case {4,5}
+                val = [];
+            otherwise
+                error('K2450 driver: Unsupported op for VgRead');
+        end
+
+    %% ---------------- Iglimit
+    case 5
+        switch ic(3)
+            case 0
+                fprintf(inst, setupcmd);
+                val = query(inst, ':SOUR:VOLT:ILIM?', '%s\n','%g');
+                fprintf(inst, continuesupdatingcmd);
+            case 1
+                fprintf(inst, setupcmd);
+                fprintf(inst, sprintf(':SOUR:VOLT:ILIM %g', val));
+                fprintf(inst, continuesupdatingcmd);
+            case {4,5}
+                val = [];
+            otherwise
+                error('K2450 driver: Unsupported op for Iglimit');
+        end
+
+    %% ---------------- Vg-ramp
+    case 6
+        switch ic(3)
+            case 1 % configure ramp
+                fprintf(inst, setupcmd);
+                startV = query(inst, ':SOUR:VOLT?', '%s\n','%g');
+                totTime = abs((val - startV)./rate);
+                fprintf(inst, sprintf(':SOUR:SWE:VOLT:LIN %g,%g,%d,0.01', startV,val,100));
+                fprintf(inst, 'INIT');
+                smdata.inst(ic(1)).data.RampTime = totTime;
+                val = totTime;
+            case 0
+                val = query(inst, ':SOUR:VOLT?', '%s\n','%g');
+            case 3
+                fprintf(inst, 'INIT');
+            case {4,5}
+                val = [];
+            otherwise
+                error('K2450 driver: Unsupported op for Vg-ramp');
+        end
+
+    %% ---------------- Ig-buf
+    case 7
+        switch ic(3)
+            case 0 % read buffer
+                stopindex = query(inst, ':TRAC:ACT:END? "defbuffer1"', '%s\n','%g');
+                if stopindex>0
+                    data = query(inst, sprintf(':TRAC:DATA? 1,%u,"defbuffer1",READ', stopindex), '%s\n');
+                    val = sscanf(data, '%g,');
+                else
+                    val = [];
+                end
+            case 5 % configure buffer
+                npts = val;   % #points from smabufconfig2_ramp
+                fprintf(inst, sprintf(':TRAC:POIN %d,"defbuffer1"', npts));
+                % --- fix: ensure datadim has enough columns
+                if size(smdata.inst(ic(1)).datadim,2) < 5
+                    smdata.inst(ic(1)).datadim(:,5) = 1;   % auto-expand to Nchan×5
+                end
+                smdata.inst(ic(1)).datadim(ic(2),:) = [npts 1 1 1 1];
+                val = npts;
+
+            case 4 % arm/reset buffer
+                fprintf(inst, ':TRAC:CLE "defbuffer1"');
+                smdata.inst(ic(1)).data.RampPts = 0;
+                val = [];
+            otherwise
+                val = [];
+        end
+
+    otherwise
+        error('K2450 driver: Invalid channel id %d', ic(2));
+end
+
+end
