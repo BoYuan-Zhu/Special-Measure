@@ -161,7 +161,7 @@ function [val, rate] = smcK2450_Ramp(ic, val, rate)
                     end
                     val = vals;
                 case 3
-                    val = [];
+                    
                 case 4
                     smdata.inst(ic(1)).data.RampPts = smdata.inst(ic(1)).datadim(ic(2));
                     val = smdata.inst(ic(1)).data.RampPts;
