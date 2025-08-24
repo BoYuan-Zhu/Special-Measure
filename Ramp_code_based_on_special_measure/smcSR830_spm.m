@@ -45,12 +45,11 @@ switch ic(2) % Channel
                 % Calculate the mantissa with two's complement
                 val = twoscomp16(output(:,17:32)).*2.^(bin2dec(output(:,1:16))-124);
                 pause(0.1);
-%                 smdata.inst(ic(1)).data.currsamp =  smdata.inst(ic(1)).data.currsamp + npts;                
+%                 smdata.inst(ic(1)).data.currsamp =  smdata.inst(ic(1)).data.currsamp + npts;         
+            case 2
+                fprintf(smdata.inst(ic(1)).data.inst, 'TRIG');
             case 3
-                if ~strcmp(smdata.inst(ic(1)).data.state,'triggered')
-                    fprintf(smdata.inst(ic(1)).data.inst, 'STRT');
-                    smdata.inst(ic(1)).data.state = 'triggered';
-                end
+               fprintf(smdata.inst(ic(1)).data.inst, 'REST');
             case 4
                 if ~strcmp(smdata.inst(ic(1)).data.state,'armed')
                     fprintf(smdata.inst(ic(1)).data.inst, 'REST');
@@ -59,16 +58,16 @@ switch ic(2) % Channel
                     pause(.1); %needed to give instrument time before next trigger, anything much shorter leads to delays.                
                 end
             case 5
-                if exist('ctrl','var') && strfind(ctrl, 'sync')
+%                 if exist('ctrl','var') && strfind(ctrl, 'sync')
                     n = 14;
-                else
-                    % n = round(log2(rate)) + 4;
-                    n = floor(log2(rate)) + 4;
-                    rate = 2^-(4-n);
-                    if n < 0 || n > 13
-                        error('Samplerate not supported by SR830');
-                    end
-                end
+%                 else
+%                     % n = round(log2(rate)) + 4;
+%                     n = floor(log2(rate)) + 4;
+%                     rate = 2^-(4-n);
+%                     if n < 0 || n > 13
+%                         error('Samplerate not supported by SR830');
+%                     end
+%                 end
                 % REST: reset the data buffers.This will erase the data
                 % buffer.
                 % SEND: sets the end of buffer mode. 0 is 1 shot and 1 is
@@ -80,7 +79,7 @@ switch ic(2) % Channel
                 % 2 Hz, 6 for 4 Hz, 7 for 8 Hz, 8 for 16 Hz, 9 for 32 Hz,
                 % 10 for 64 Hz, 11 for 128 Hz, 12 for 256 Hz, 13 for 512
                 % Hz, and 14 for Trigger.
-                fprintf(smdata.inst(ic(1)).data.inst, 'REST; SEND 1; TSTR 1; SRAT %i', n);
+                fprintf(smdata.inst(ic(1)).data.inst, 'REST; SEND 0; TSTR 1; SRAT %i', n);
                 pause(.1);
                 smdata.inst(ic(1)).data.currsamp = 0;
                 smdata.inst(ic(1)).data.sampint = 1/rate;
@@ -137,12 +136,32 @@ tauvals = [x 1e1*x 1e2*x 1e3*x 1e4*x 1e5*x 1e6*x 1e7*x 1e8*x 1e9*x];
 tauindex = find(tauvals >= tauval,1)-1;
 
 function output = twoscomp16(input16)
-% Gets the 16-bit two's complement of an integer input
-% Needed for conversion in the TRCL command format
-% input16 should be a 16 bit binary string array
-mask = ['1' repmat('0', 1, 15)];
-nvals = length(input16);
-output = bin2dec(reshape(sprintf(repmat('%i', nvals, 16)', ...
-    int8(logical(input16'-'0')' & ~logical(mask(:)'-'0'))), nvals, 16)) ...
-    - bin2dec(reshape(sprintf(repmat('%i', nvals, 16)', ...
-    int8(logical(input16'-'0')' & logical(mask(:)'-'0'))), nvals, 16));
+% Convert 16-bit two's-complement binary (as chars) to signed numbers.
+% INPUT:
+%   input16 : N×16 char array, each row is a 16-bit '0'/'1' string
+% OUTPUT:
+%   output  : N×1 double in the range [-32768, 32767]
+%
+% Rationale:
+%   SR830 TRCL returns mantissa as 16-bit two's-complement. We:
+%     1) convert each 16-bit row to uint16 (bin2dec),
+%     2) reinterpret bits as int16 (typecast),
+%     3) return as double.
+
+    % Accept numeric/logical 0/1 as well, convert to char '0'/'1'
+    if ~ischar(input16)
+        if (isnumeric(input16) || islogical(input16)) && size(input16,2) == 16
+            input16 = char('0' + (input16 ~= 0));  % N×16 char array
+        else
+            error('twoscomp16: expect N×16 char array or numeric/logical 0/1 matrix.');
+        end
+    end
+
+    % Validate shape
+    if size(input16,2) ~= 16
+        error('twoscomp16: input must be N×16 bits.');
+    end
+
+    % Row-wise convert to unsigned, then reinterpret as signed
+    u = uint16(bin2dec(input16));       % N×1, 0..65535
+    output = double(typecast(u, 'int16'));  % N×1, -32768..32767

@@ -72,7 +72,7 @@ end
 
 %%============ Vbg vs dummy (SR830 buffered only)
 innerLoopChannel  = 'Vg';
-ramptimeInnerLoop = 12;        % total ramp time (s) for the whole sweep
+ramptimeInnerLoop = 1.2;        % total ramp time (s) for the whole sweep
 npointsInnerLoop  = 81;
 minInnerLoop      = 4;
 maxInnerLoop      = -4;
@@ -119,7 +119,7 @@ smscan.loops(2).ramptime = 0;
 smscan.loops(2).waittime = 0;
 
 % keep the buffered fast-mode config for SR830 + ramp on K2450
-smscan.configfn.fn   = @smabufconfig2_ramp;
+smscan.configfn.fn   = @smabufconfig2;
 smscan.configfn.args = {'trig arm'};
 
 %% ---------- File numbering ----------

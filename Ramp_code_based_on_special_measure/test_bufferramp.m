@@ -72,11 +72,36 @@ catch err
     fprintf(['*ERROR* problem with connecting to the Source | ' err.identifier ': ' err.message '\n']);
 end
 
+
+
+
+
+% 
+% innerLoopChannel = 'Vg';
+% myChannel = 'Ig-buf';
+% inst = smchaninst(smchanlookup(myChannel));   % 例如 Vg-ramp
+% smatrigfn(inst);                               % 默认 op=3
+% 
+% for i=1:50
+% smset(innerLoopChannel,i/10);
+% pause(0.12);
+% smread(myChannel);
+% pause(0.1);
+% end
+% 
+% val = smget(myChannel);
+% fprintf('buf: %s\n', mat2str(val{1}, 6));  % 一行打印，保留6位有效数字
+
+
+
+
+
+
 %%============ Vbg vs dummy
 % Set channel of measurement: yoko, dc205 or keithley
 innerLoopChannel = 'Vg';
-ramptimeInnerLoop = 12; 
-npointsInnerLoop = 81;
+ramptimeInnerLoop = 5; 
+npointsInnerLoop = 1001;
 minInnerLoop = 4;
 maxInnerLoop = -4;
 %% 
@@ -86,11 +111,11 @@ maxInnerLoop = -4;
 % dmm-fast-buf is the buffer channel of K34461A
 % !!!!! Lockin must come first in get channel to avoid time
 % inconsistent of dmm and lockin.
-myChannel = { 'Iac1-buf'  'Iac1-phase-buf' 'Ig-buf'};
+myChannel = {  'Ig-buf' 'Iac1-buf'  'Iac1-phase-buf'};
 
 outerLoopChannel = 'dummy';
 npointsOuterLoop = 1;
-minOuterLoop = 0;
+minOuterLoop = 1;
 maxOuterLoop = 1;
 
 
@@ -110,27 +135,28 @@ for k = 1:numel(myChannel)
     smscan.disp(k).dim     = 1;   % 1D trace
 end
 
-% === loops ===
 smscan.loops = struct;
-smscan.loops(1).npoints  = npointsInnerLoop;
-smscan.loops(1).rng      = [minInnerLoop maxInnerLoop];
-smscan.loops(1).getchan  = {};                        % fast mode: no get in inner loop
-smscan.loops(1).setchan  = {innerLoopChannel};
-% 修改这一行：硬件sweep不需要计算per-step时间，而是使用配置的holdTime
-% smscan.loops(1).ramptime = abs(ramptimeInnerLoop/(smscan.loops(1).npoints-1));  % 原来的软件步进方式
-smscan.loops(1).ramptime = ramptimeInnerLoop;  % 硬件sweep使用总扫描时间
-smscan.loops(1).waittime = 0;
+smscan.loops(1).npoints = npointsInnerLoop;
+smscan.loops(1).rng = [minInnerLoop maxInnerLoop];
+smscan.loops(1).getchan = {};
+smscan.loops(1).readchan = myChannel;
+smscan.loops(1).setchan = {innerLoopChannel};
+smscan.loops(1).ramptime = abs(ramptimeInnerLoop/(smscan.loops(1).npoints-1));
+smscan.loops(1).waittime = 0.1;
 
-smscan.loops(2).npoints  = npointsOuterLoop;
-smscan.loops(2).rng      = [minOuterLoop maxOuterLoop];
-smscan.loops(2).getchan  = myChannel;                 % 3 channels
-smscan.loops(2).setchan  = {outerLoopChannel};
+
+
+smscan.loops(2).npoints = npointsOuterLoop;
+smscan.loops(2).rng = [minOuterLoop maxOuterLoop];
+smscan.loops(2).getchan = myChannel;
+smscan.loops(2).setchan = {outerLoopChannel};
+smscan.loops(2).readchan = {};
 smscan.loops(2).ramptime = 0;
 smscan.loops(2).waittime = 0;
 
-% 可能需要更新configfn参数
-smscan.configfn.fn = @smabufconfig2_ramp;
-smscan.configfn.args = {'trig arm'}; % 保持相同或可能需要调整
+
+smscan.configfn.fn   = @smabufconfig_buframp;
+smscan.configfn.args = {'trig'};   % ctrl='trig '，getchanInd=0(不筛选)
 
 
 %% figure out the next scan number (##_.mat)
@@ -157,27 +183,27 @@ disp(['The current time is: ' datestr(datetime)]);
 
 
 % run the scan with appropriate filename
-smrun(smscan, scanFilename);
+smrun_buf(smscan, scanFilename);
 
-% save the plot from the scan to a ppt
-slide = struct;
-slide.title = [smscan.name '_' num2str(runNumber) '.mat'];
-slide.body = smscan.comments;
-slide.loops = smscan.loops;
-slide.consts = smscan.consts;
-try
-    % test plot on figure 1000
-    if strcmp(smaux.pptMode, 'ppt')
-        smsaveppt(smaux.pptsavefile, slide, '-f1000');
-    elseif strcmp(smaux.pptMode, 'pptx')
-        smsavepptx(smaux.pptsavefile, slide, '-f1000');
-    end
-catch
-    warning(['There was an error saving to the ppt for scan ' num2str(runNumber) '; continuing']);
-end
-toc;
-
-
+% % save the plot from the scan to a ppt
+% slide = struct;
+% slide.title = [smscan.name '_' num2str(runNumber) '.mat'];
+% slide.body = smscan.comments;
+% slide.loops = smscan.loops;
+% slide.consts = smscan.consts;
+% try
+%     % test plot on figure 1000
+%     if strcmp(smaux.pptMode, 'ppt')
+%         smsaveppt(smaux.pptsavefile, slide, '-f1000');
+%     elseif strcmp(smaux.pptMode, 'pptx')
+%         smsavepptx(smaux.pptsavefile, slide, '-f1000');
+%     end
+% catch
+%     warning(['There was an error saving to the ppt for scan ' num2str(runNumber) '; continuing']);
+% end
+% toc;
+% 
+% 
 function myUpdatedScan = UpdateConstants(myScan)
 % copied from smgui
 %global smaux smscan;

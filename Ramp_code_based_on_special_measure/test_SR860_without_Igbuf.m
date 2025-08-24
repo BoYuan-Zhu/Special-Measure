@@ -72,8 +72,8 @@ end
 
 %%============ Vbg vs dummy (SR830 buffered only)
 innerLoopChannel  = 'Vg';
-ramptimeInnerLoop = 12;        % total ramp time (s) for the whole sweep
-npointsInnerLoop  = 81;
+ramptimeInnerLoop = 1.2;        % total ramp time (s) for the whole sweep
+npointsInnerLoop  = 11;
 minInnerLoop      = 4;
 maxInnerLoop      = -4;
 

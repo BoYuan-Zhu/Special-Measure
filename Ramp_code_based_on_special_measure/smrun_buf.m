@@ -212,9 +212,8 @@ for i = 1:nloops
     
     scandef(i).setchan = smchanlookup(scandef(i).setchan);
     scandef(i).getchan = smchanlookup(scandef(i).getchan);
-   
+    scandef(i).readchan = smchanlookup(scandef(i).readchan);
 
-    
     nsetchan(i) = length(scandef(i).setchan);
 
     %procfn defaults
@@ -503,10 +502,13 @@ loops = 1:nloops; % indices of loops to be updated. 1 = fastest loop
 %%Main loop
 for i = 1:totpoints    
     % update a loop if all faster loops are at first val
-    if i > 1 ;
-        loops = 1:find(count > 1, 1);        
+    if i > 1 
+        loops = 1:find(count > 1, 1);   
+%     elseif i == 1
+%           
+%         loops = 1:nloops;              
     end       
-    
+     
     for j = loops
         x(j) = scandef(j).rng(count(j));
     end
@@ -579,7 +581,7 @@ for i = 1:totpoints
         % if the field 'waittime' was in scan.loops(j), then wait that
         % amount of time now
         if isfield(scandef,'waittime')
-            pause(scandef(j).waittime)
+            pause(scandef(j).waittime);
         end
 
         % trigger after waiting for first point.
@@ -589,6 +591,23 @@ for i = 1:totpoints
 
 
     end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
     % read loops if all subsequent loops are at max count, outer loops last
     loops = 1:find(count < npoints, 1);
     if isempty(loops)
@@ -597,7 +616,20 @@ for i = 1:totpoints
     for j = loops(~isdummy(loops))
         % could save a function call/data copy here - not a lot of code               
         newdata = smget(scandef(j).getchan);
-        
+
+        smread(scandef(j).readchan);  %read into buffer
+
+
+
+
+
+
+
+
+
+
+
+
         if isfield(scandef, 'postfn')
             fncall(scandef(j).postfn, xt);
         end
