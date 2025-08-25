@@ -244,10 +244,7 @@ case 7 % Ig-buf  —— Buffered current on 2450
 
     switch ic(3)
         case 3  % one-time configure & arm
-            fclose(inst);                 % 
-            inst.InputBufferSize = 1e6;   % Buffersize 1 MB
-            inst.Timeout = 20;            % 
-            fopen(inst);                  % 
+            
             
                         % Abort any previous action and prepare the buffer
             fprintf(inst, ':ABORt');
@@ -302,6 +299,10 @@ case 7 % Ig-buf  —— Buffered current on 2450
 
         case 5
             % set planned points & derived ramp time if you need it
+            fclose(inst);                 % 
+            inst.InputBufferSize = 1e6;   % Buffersize 1 MB
+            inst.Timeout = 20;            % 
+            fopen(inst);                  % 
             smdata.inst(ic(1)).datadim(ic(2)) = val;
             smdata.inst(ic(1)).data.RampPts   = val;
             smdata.inst(ic(1)).data.RampTime  = (val-1)./rate;

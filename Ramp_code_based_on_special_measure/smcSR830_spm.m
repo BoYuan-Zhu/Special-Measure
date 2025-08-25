@@ -15,6 +15,7 @@ cmds = {'OUTP 1', 'OUTP 2', 'OUTP 3', 'OUTP 4', 'FREQ', 'SLVL', 'OAUX 1', 'OAUX 
 
 switch ic(2) % Channel
     case {15, 16} % Stored data, length determined by datadim
+        inst = smdata.inst(ic(1)).data.inst;
         switch ic(3)
             case 0  % get              
                 npts = smdata.inst(ic(1)).datadim(ic(2), 1);
@@ -49,6 +50,10 @@ switch ic(2) % Channel
             case 2
                 fprintf(smdata.inst(ic(1)).data.inst, 'TRIG');
             case 3
+                fclose(inst);                 % 
+                inst.InputBufferSize = 1e6;   % Buffersize 1 MB
+                inst.Timeout = 20;            % 
+                fopen(inst);                  % 
                fprintf(smdata.inst(ic(1)).data.inst, 'REST');
             case 4
                 if ~strcmp(smdata.inst(ic(1)).data.state,'armed')
