@@ -100,7 +100,8 @@ end
 %%============ Vbg vs dummy
 % Set channel of measurement: yoko, dc205 or keithley
 innerLoopChannel = 'Vg';
-ramptimeInnerLoop = 5; 
+ramptimeInnerLoop_perstep= 0.01; 
+InnerLoopwaittime = 0.1;
 npointsInnerLoop = 51;
 minInnerLoop = 4;
 maxInnerLoop = -4;
@@ -141,8 +142,8 @@ smscan.loops(1).rng = [minInnerLoop maxInnerLoop];
 smscan.loops(1).getchan = {};
 smscan.loops(1).readchan = myChannel;
 smscan.loops(1).setchan = {innerLoopChannel};
-smscan.loops(1).ramptime = abs(ramptimeInnerLoop/(smscan.loops(1).npoints-1));
-smscan.loops(1).waittime = 0.1;
+smscan.loops(1).ramptime = ramptimeInnerLoop_perstep;
+smscan.loops(1).waittime = InnerLoopwaittime;
 
 
 

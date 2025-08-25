@@ -247,7 +247,7 @@ case 7 % Ig-buf  —— Buffered current on 2450
             
             
                         % Abort any previous action and prepare the buffer
-            fprintf(inst, ':ABORt');
+            fprintf(inst, ':ABORt;:TRIG:LOAD "Empty"');
             fprintf(inst, ':TRACe:CLEar "defbuffer1"');
             fprintf(inst, ':TRACe:POINts 100000,"defbuffer1"');
             % Feed current readings into defbuffer1; NEXT => one reading per trigger
@@ -318,7 +318,6 @@ case 7 % Ig-buf  —— Buffered current on 2450
 
 
 end
-
 
 
 
