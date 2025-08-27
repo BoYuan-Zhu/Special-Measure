@@ -21,7 +21,7 @@ smscan.comments = ['Graphene @ RT Gr Vg test on Gr gate pin 18, Si gate gnd.' ne
 smscan.name = 'Graphene';
 
 % === Adjust these paths to your environment ===
-smaux.datadir     = 'C:\Users\86155\Desktop\sjtu_3\summer intern\special measure\test';
+smaux.datadir     = 'C:\Users\WangLabAdmin\Desktop\Users\boyuan\SpecialMeasure\buffer-test';
 smaux.pptsavefile = smaux.datadir;    % folder or a .ppt/.pptx file path
 smaux.pptMode     = 'ppt';            % 'ppt' or 'pptx'
 
@@ -100,7 +100,7 @@ end
 %%============ Vbg vs dummy
 % Set channel of measurement: yoko, dc205 or keithley
 innerLoopChannel = 'Vg';
-ramptimeInnerLoop_perstep= 0.01; 
+ramptimeInnerLoop_perstep= 0; 
 InnerLoopwaittime = 0.1;
 npointsInnerLoop = 51;
 minInnerLoop = 4;
