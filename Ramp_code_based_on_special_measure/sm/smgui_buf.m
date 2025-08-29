@@ -439,38 +439,24 @@ end
 
 %Callback for getchannel pmh
 function GetChannel(hObject,eventdata,i,j)
-
 global smaux smscan smdata;
-
     val = get(smaux.smgui.loopvars_getchans_pmh(i,j),'Value');
     if val==1
-        if i==1
-            if j <= numel(smscan.loops(i).readchan)
-                smscan.loops(i).readchan(j)=[];
-            end
-        else
-            if j <= numel(smscan.loops(i).getchan)
-                smscan.loops(i).getchan(j)=[];
-            end
-        end
-
+        smscan.loops(i).getchan(j)=[];         % 'none' => remove entry
     else
-        chname = smdata.channels(val-1).name;
-        if i==1
-            if ~isfield(smscan.loops(i),'readchan') || ~iscell(smscan.loops(i).readchan)
-                smscan.loops(i).readchan = {};
-            end
-            smscan.loops(i).readchan{j} = chname;
-        else
-            smscan.loops(i).getchan{j} = chname;
-        end
+        smscan.loops(i).getchan{j}=smdata.channels(val-1).name;
     end
+
+    % --- Mirror loop 2's getchan into loop 1's readchan ---
+    if length(smscan.loops) >= 2
+        smscan.loops(1).readchan = smscan.loops(2).getchan;
+        if isempty(smscan.loops(1).readchan), smscan.loops(1).readchan = {}; end
+    end
+
     smscan.disp=[];
     makelooppanels;
-
 end
 
- 
 
 %Callback for the constants pmh
 function ConstMenu(hObject,eventdata,i)
@@ -662,48 +648,32 @@ end
 %populates plot choices
 function setplotchoices(varargin)
     global smscan smaux;
-    %=== 根据 loop 号，1 用 readchan，其它用 getchan ===
-    nL = length(smscan.loops);
-    temp = cell(1, nL);
-    for ii = 1:nL
-        if ii == 1
-            if isfield(smscan.loops(ii),'readchan')
-                temp{ii} = smscan.loops(ii).readchan;
-            else
-                temp{ii} = {};
-            end
-        else
-            if isfield(smscan.loops(ii),'getchan')
-                temp{ii} = smscan.loops(ii).getchan;
-            else
-                temp{ii} = {};
+        temp={smscan.loops.getchan};
+        plotchoices.string={};
+        plotchoices.loop=[];
+        for i=1:length(temp)
+            for j=1:length(temp{i})
+                plotchoices.string={plotchoices.string{:} temp{i}{j}};
+                plotchoices.loop=[plotchoices.loop i];
             end
         end
-    end
-    %=== 以下保持原逻辑 ===
-    plotchoices.string={};
-    plotchoices.loop=[];
-    for i=1:length(temp)
-        for j=1:length(temp{i})
-            plotchoices.string={plotchoices.string{:} temp{i}{j}};
-            plotchoices.loop=[plotchoices.loop i];
+        set(smaux.smgui.oneDplot_lbh,'String',plotchoices.string);       
+        set(smaux.smgui.twoDplot_lbh,'String',plotchoices.string);       
+        newoneDvals = [];
+        newtwoDvals = [];
+        for i=1:length(smscan.disp)
+            if smscan.disp(i).dim==1
+                newoneDvals = [newoneDvals smscan.disp(i).channel];
+            elseif smscan.disp(i).dim == 2
+                newtwoDvals = [newtwoDvals smscan.disp(i).channel];
+            end
         end
-    end
-    set(smaux.smgui.oneDplot_lbh,'String',plotchoices.string);
-    set(smaux.smgui.twoDplot_lbh,'String',plotchoices.string);
- 
-    newoneDvals = []; newtwoDvals = [];
-    for i=1:length(smscan.disp)
-        if smscan.disp(i).dim==1
-            newoneDvals = [newoneDvals smscan.disp(i).channel];
-        elseif smscan.disp(i).dim==2
-            newtwoDvals = [newtwoDvals smscan.disp(i).channel];
-        end
-    end
-    sort(newoneDvals); sort(newtwoDvals);
-    set(smaux.smgui.oneDplot_lbh,'Val',newoneDvals);
-    set(smaux.smgui.twoDplot_lbh,'Val',newtwoDvals);
+        sort(newoneDvals);
+        sort(newtwoDvals);
+        set(smaux.smgui.oneDplot_lbh,'Val',newoneDvals);
+        set(smaux.smgui.twoDplot_lbh,'Val',newtwoDvals);
 end
+
 % Callback for running the scan (call to smrun)
 function Run(varargin)
         global smaux smscan smdata;
@@ -799,7 +769,6 @@ function Update(varargin)
         smscan.loops(1).rng=[0 1];
         smscan.loops(1).getchan={};
         smscan.loops(1).setchan={};
-        smscan.loops(1).readchan={};
         smscan.loops(1).setchanranges={};
         smscan.loops(1).ramptime=[];
         smscan.loops(1).trafofn={};
@@ -865,6 +834,14 @@ function scaninit(varargin)
         else
             smscan.comments='';
         end
+        % Ensure loop 1 readchan mirrors loop 2 getchan on init
+        if length(smscan.loops) >= 2
+            if ~isfield(smscan.loops(1),'readchan') || ~isequal(smscan.loops(1).readchan, smscan.loops(2).getchan)
+                smscan.loops(1).readchan = smscan.loops(2).getchan;
+                if isempty(smscan.loops(1).readchan), smscan.loops(1).readchan = {}; end
+            end
+        end
+
         makelooppanels;
         setplotchoices;
         makeconstpanel;
@@ -893,7 +870,6 @@ function makelooppanels(varargin)
             smscan.loops(i).npoints=101;
             smscan.loops(i).rng=[0 1];
             smscan.loops(i).getchan=[];
-            smscan.lopps(i).readchan = [];
             smscan.loops(i).setchan={'none'};
             smscan.loops(i).setchanranges={[0 1]};
             smscan.loops(i).ramptime=[];
@@ -984,13 +960,17 @@ function makelooppanels(varargin)
 
 
         %Add popup menus for get channels 
-        smaux.smgui.loopvars_sth(i,4) = uicontrol('Parent',smaux.smgui.loop_panels_ph(i),...
-            'Style','text',...
-            'String','Record:',...
-            'HorizontalAlignment','center',...
-            'Position',[5 35 50 20]);
-        makeloopgetchans(i);
+        % Show "Record" controls only on the saveloop (e.g., loop 2)
+        if isfield(smscan,'saveloop') && ~isempty(smscan.saveloop) && i == smscan.saveloop
+            smaux.smgui.looprec_sth(i) = uicontrol('Parent',smaux.smgui.loop_panels_ph(i),...
+                'Style','text',...
+                'String','Record:',...
+                'HorizontalAlignment','center',...
+                'Position',[5 35 50 20]);
+            makeloopgetchans(i);  % only build the getchan popups here
+        end
         setplotchoices;
+
     end
 
 
@@ -1196,30 +1176,21 @@ end
 % Make the getchannel UI popup objects for loop i
 function makeloopgetchans(i)
     global smscan smaux smdata;
-    %=== 关键改动：根据 loop 号选择数据源 ===
-    useRead = (i == 1);
-    if useRead
-        if ~isfield(smscan.loops(i),'readchan') || ~iscell(smscan.loops(i).readchan)
-            smscan.loops(i).readchan = {};
-        end
-        currList = smscan.loops(i).readchan;
-    else
-        if ~isfield(smscan.loops(i),'getchan') || ~iscell(smscan.loops(i).getchan)
-            smscan.loops(i).getchan = {};
-        end
-        currList = smscan.loops(i).getchan;
+    numgetchans=length(smscan.loops(i).getchan);
+    %smaux.smgui.loopvars_getchans_pmh=[];  %JDSY 7/1/9/2011
+    channelnames = {};
+    for k = 1:length(smdata.channels)
+        channelnames{k}=smdata.channels(k).name;
     end
-    numgetchans = length(currList);
-    %=========================================
- 
-    channelnames = {smdata.channels.name};
- 
+
+
     for j=1:numgetchans
         try
-            chanval = smchanlookup(currList{j}) + 1;
-        catch
-            errordlg([currList{j} ' is not a channel'], 'Invalid Channel in smscan');
-            chanval = 1;
+            chanval=smchanlookup(smscan.loops(i).getchan{j})+1;
+        catch 
+            errordlg([smscan.loops(i).getchan{j} ' is not a channel'],...
+                'Invalid Channel in smscan');
+            chanval=1;
         end
         smaux.smgui.loopvars_getchans_pmh(i,j) = uicontrol('Parent',smaux.smgui.loop_panels_ph(i),...
             'Style','popupmenu',...
@@ -1229,10 +1200,10 @@ function makeloopgetchans(i)
             'Position',[60+90*(mod((j-1),7)) 40-30*floor((j-1)/7) 80 20],...
             'Callback',{@GetChannel,i,j});
     end
- 
-    if numgetchans==0, j=0; end
- 
-    % 追加一个空位（'none'）
+
+    if numgetchans==0 j=0;
+    end
+
     smaux.smgui.loopvars_getchans_pmh(i,j+1) = uicontrol('Parent',smaux.smgui.loop_panels_ph(i),...
         'Style','popupmenu',...
         'String',['none' channelnames],...
@@ -1240,6 +1211,8 @@ function makeloopgetchans(i)
         'HorizontalAlignment','center',...
         'Position',[60+90*(mod(j,7)) 40-30*floor(j/7) 80 20],...
         'Callback',{@GetChannel,i,j+1});
+
+
 end
 
 function makeconstpanel(varargin)
@@ -1326,12 +1299,13 @@ function makeconstpanel(varargin)
 end
 
 %Set the loop where data is aved
+%Set the loop where data is saved
 function SaveLoop(hObject,eventdata)
     global smaux smdata smscan;
-    val = str2double(get(smaux.smgui.saveloops_eth,'String'));
+    val = str2double(get(smaux.smgui.saveloop_eth,'String'));   % <-- fixed handle name
     if (isnan(val) || mod(val,1)~=0 || val<1)
         errordlg('Please enter a positive integer','Invalid Input Value');
-        set(smaux.smgui.saveloops_eth,'String',1);
+        set(smaux.smgui.saveloop_eth,'String',1);
         return;
     elseif ~isstruct(smdata)
         errordlg('Please load a rack','Illegal Action');
@@ -1339,10 +1313,25 @@ function SaveLoop(hObject,eventdata)
     else
         smscan.saveloop = val;
     end
-       
+
+    % Keep recording only on the selected saveloop; clear others
+    for ii = 1:length(smscan.loops)
+        if ii ~= smscan.saveloop
+            smscan.loops(ii).getchan = {};     % no record channels on other loops
+        end
+    end
+    % Mirror loop 2 -> loop 1 readchan
+    if length(smscan.loops) >= 2
+        smscan.loops(1).readchan = smscan.loops(2).getchan;
+        if isempty(smscan.loops(1).readchan), smscan.loops(1).readchan = {}; end
+    end
+
     makelooppanels;
     makeconstpanel;
 end
+
+
+
 
 %Change the number of loops in the scan
 function NumLoops(hObject,eventdata)
