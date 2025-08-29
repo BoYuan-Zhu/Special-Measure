@@ -21,7 +21,7 @@ smscan.comments = ['Graphene @ RT Gr Vg test on Gr gate pin 18, Si gate gnd.' ne
 smscan.name = 'Graphene';
 
 % === Adjust these paths to your environment ===
-smaux.datadir     = 'C:\Users\WangLabAdmin\Desktop\Users\boyuan\SpecialMeasure\buffer-test';
+smaux.datadir     = 'C:\Users\wanglabadmin\Desktop\Special-Measure-main\test';
 smaux.pptsavefile = smaux.datadir;    % folder or a .ppt/.pptx file path
 smaux.pptMode     = 'ppt';            % 'ppt' or 'pptx'
 
