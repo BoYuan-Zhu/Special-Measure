@@ -94,7 +94,7 @@ end
 
 
 
-
+smscan.loops = zeros();
 
 
 %%============ Vbg vs dummy

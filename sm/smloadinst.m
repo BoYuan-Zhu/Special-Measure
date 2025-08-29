@@ -32,7 +32,7 @@ if ~isempty(constructor)
     if nargin < 3 || isempty(adaptor) 
         switch func2str(constructor.fn)
             case {'gpib', 'visa'}
-                 adaptor = {'ni'
+                 adaptor = {'ni'};
             otherwise 
                 adaptor = {};
         end
