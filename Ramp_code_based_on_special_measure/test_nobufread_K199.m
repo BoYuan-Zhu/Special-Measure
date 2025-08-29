@@ -57,8 +57,8 @@ end
 
 %% ==================== Scan definition ====================
 innerLoopChannel = 'Vg';      % the dummy channel we step through
-InnerLoopwaittime = 0.12;
-npointsInnerLoop  = 11;
+InnerLoopwaittime = 0.1;
+npointsInnerLoop  = 51;
 minInnerLoop      = 0;
 maxInnerLoop      = 1;
 
