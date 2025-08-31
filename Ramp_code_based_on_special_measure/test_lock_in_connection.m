@@ -28,33 +28,57 @@ smaux.pptMode     = 'ppt';            % 'ppt' or 'pptx'
 %% -------------------- GPIB --------------------
 GPIB_BOARD        = 'ni';
 BOARD_NUM         = 0;
-LockInHigh_GPIB   = 1;   % SR830 GPIB address
 K2450_GPIB        = 18;  % K2450 GPIB address
-
+K199_GPIB         = 26;   % K199 GPIB address
+LockInHigh_GPIB_1 = 1 ;
+LockInHigh_GPIB_9 = 9 ;
 %% -------------------- Dummy instrument (for outer loop) --------------------
 smloadinst('test');
 smaddchannel('test','CH1','dummy');
 smaddchannel('test','CH2','count');
 
-%% -------------------- SR830 --------------------
+%% -------------------- SR830_1 --------------------
 try
-    ind_sr = smloadinst('SR830_1', [], GPIB_BOARD, BOARD_NUM, LockInHigh_GPIB);
+    ind_sr = smloadinst('SR830_1', [], GPIB_BOARD, BOARD_NUM, LockInHigh_GPIB_1);
     smopen(ind_sr);
-    smdata.inst(ind_sr).name    = 'LockIn_High';
+    smdata.inst(ind_sr).name    = 'LockIn_High_1';
     smdata.inst(ind_sr).cntrlfn = @smcSR830_spm;
 
     % Live channels (scaled ranges are examples; adjust as needed)
-    % smaddchannel('LockIn_High','X',    'Isd',     [-Inf, Inf, Inf, 1e6]);
-    % smaddchannel('LockIn_High','Y',    'Isd_Y',   [-Inf, Inf, Inf, 1e6]);
-    % smaddchannel('LockIn_High','FREQ', 'Freq_A',  [0, 102000, 10, 1]);
-    % smaddchannel('LockIn_High','VREF', 'Vref_A',  [0.004, 5, 0.5, 1]);
-    % smaddchannel('LockIn_High','OUT1', 'OUT1_A',  [-2, 2, 0.5, 1]);
+    smaddchannel('LockIn_High_1','X',    'Isd_1',     [-Inf, Inf, Inf, 1e6]);
+    smaddchannel('LockIn_High_1','Y',    'Isd_Y_1',   [-Inf, Inf, Inf, 1e6]);
+    smaddchannel('LockIn_High_1','FREQ', 'Freq_A_1',  [0, 102000, 10, 1]);
+    smaddchannel('LockIn_High_1','VREF', 'Vref_A_1',  [0.004, 5, 0.5, 1]);
+    smaddchannel('LockIn_High_1','OUT1', 'OUT1_A_1',  [-2, 2, 0.5, 1]);
+    smaddchannel('LockIn_High_1','THETA', 'THETA_1',  []);
+
 
     % Buffered channels (Lock-in first in getchan to avoid time skew)
-    smaddchannel('LockIn_High','DATA1','Iac1-buf');         % X trace
-    smaddchannel('LockIn_High','DATA2','Iac1-phase-buf');   % Phase trace
+    smaddchannel('LockIn_High_1','DATA1','Iac1-buf_1');         % X trace
+    smaddchannel('LockIn_High_1','DATA2','Iac1-phase-buf_1');   % Phase trace
 catch err
-    fprintf(['*ERROR* SR830: ' err.identifier ': ' err.message '\n']);
+    fprintf(['*ERROR* SR830_1: ' err.identifier ': ' err.message '\n']);
+end
+
+%% -------------------- SR830_2 --------------------
+try
+    ind_sr = smloadinst('SR830_1', [], GPIB_BOARD, BOARD_NUM, LockInHigh_GPIB_9);
+    smopen(ind_sr);
+    smdata.inst(ind_sr).name    = 'LockIn_High_2';
+    smdata.inst(ind_sr).cntrlfn = @smcSR830_spm;
+
+    % Live channels (scaled ranges are examples; adjust as needed)
+    smaddchannel('LockIn_High_2','X',    'Isd_2',     [-Inf, Inf, Inf, 1e6]);
+    smaddchannel('LockIn_High_2','Y',    'Isd_Y_2',   [-Inf, Inf, Inf, 1e6]);
+    smaddchannel('LockIn_High_2','FREQ', 'Freq_A_2',  [0, 102000, 10, 1]);
+    smaddchannel('LockIn_High_2','VREF', 'Vref_A_2',  [0.004, 5, 0.5, 1]);
+    smaddchannel('LockIn_High_2','OUT1', 'OUT1_A_2',  [-2, 2, 0.5, 1]);
+
+    % Buffered channels (Lock-in first in getchan to avoid time skew)
+    smaddchannel('LockIn_High_2','DATA1','Iac1-buf_2');         % X trace
+    smaddchannel('LockIn_High_2','DATA2','Iac1-phase-buf_2');   % Phase trace
+catch err
+    fprintf(['*ERROR* SR830_2: ' err.identifier ': ' err.message '\n']);
 end
 
 %% -------------------- K2450 --------------------
@@ -72,11 +96,37 @@ catch err
     fprintf(['*ERROR* problem with connecting to the Source | ' err.identifier ': ' err.message '\n']);
 end
 
+
+
+
+
+% 
+% innerLoopChannel = 'Vg';
+% myChannel = 'Ig-buf';
+% inst = smchaninst(smchanlookup(myChannel));   % 例如 Vg-ramp
+% smatrigfn(inst);                               % 默认 op=3
+% 
+% for i=1:50
+% smset(innerLoopChannel,i/10);
+% pause(0.12);
+% smread(myChannel);
+% pause(0.1);
+% end
+% 
+% val = smget(myChannel);
+% fprintf('buf: %s\n', mat2str(val{1}, 6));  % 一行打印，保留6位有效数字
+
+
+
+smscan.loops = zeros();
+
+
 %%============ Vbg vs dummy
 % Set channel of measurement: yoko, dc205 or keithley
 innerLoopChannel = 'Vg';
-ramptimeInnerLoop = 12; 
-npointsInnerLoop = 81;
+ramptimeInnerLoop_perstep= 0.1; 
+InnerLoopwaittime = 0.15;
+npointsInnerLoop = 51;
 minInnerLoop = 4;
 maxInnerLoop = -4;
 %% 
@@ -86,11 +136,11 @@ maxInnerLoop = -4;
 % dmm-fast-buf is the buffer channel of K34461A
 % !!!!! Lockin must come first in get channel to avoid time
 % inconsistent of dmm and lockin.
-myChannel = { 'Iac1-buf'  'Iac1-phase-buf' 'Ig-buf'};
+myChannel = {  'Ig-buf' 'Iac1-buf_1' 'Iac1-phase-buf_1' 'Iac1-buf_2' 'Iac1-phase-buf_2'};
 
 outerLoopChannel = 'dummy';
 npointsOuterLoop = 1;
-minOuterLoop = 0;
+minOuterLoop = 1;
 maxOuterLoop = 1;
 
 
@@ -110,27 +160,28 @@ for k = 1:numel(myChannel)
     smscan.disp(k).dim     = 1;   % 1D trace
 end
 
-% === loops ===
 smscan.loops = struct;
-smscan.loops(1).npoints  = npointsInnerLoop;
-smscan.loops(1).rng      = [minInnerLoop maxInnerLoop];
-smscan.loops(1).getchan  = {};                        % fast mode: no get in inner loop
-smscan.loops(1).setchan  = {innerLoopChannel};
-% 修改这一行：硬件sweep不需要计算per-step时间，而是使用配置的holdTime
-% smscan.loops(1).ramptime = abs(ramptimeInnerLoop/(smscan.loops(1).npoints-1));  % 原来的软件步进方式
-smscan.loops(1).ramptime = ramptimeInnerLoop;  % 硬件sweep使用总扫描时间
-smscan.loops(1).waittime = 0;
+smscan.loops(1).npoints = npointsInnerLoop;
+smscan.loops(1).rng = [minInnerLoop maxInnerLoop];
+smscan.loops(1).getchan = {};
+smscan.loops(1).readchan = myChannel;
+smscan.loops(1).setchan = {innerLoopChannel};
+smscan.loops(1).ramptime = ramptimeInnerLoop_perstep;
+smscan.loops(1).waittime = InnerLoopwaittime;
 
-smscan.loops(2).npoints  = npointsOuterLoop;
-smscan.loops(2).rng      = [minOuterLoop maxOuterLoop];
-smscan.loops(2).getchan  = myChannel;                 % 3 channels
-smscan.loops(2).setchan  = {outerLoopChannel};
+
+
+smscan.loops(2).npoints = npointsOuterLoop;
+smscan.loops(2).rng = [minOuterLoop maxOuterLoop];
+smscan.loops(2).getchan = myChannel;
+smscan.loops(2).setchan = {outerLoopChannel};
+smscan.loops(2).readchan = {};
 smscan.loops(2).ramptime = 0;
 smscan.loops(2).waittime = 0;
 
-% 可能需要更新configfn参数
-smscan.configfn.fn = @smabufconfig2_ramp;
-smscan.configfn.args = {'trig arm'}; % 保持相同或可能需要调整
+
+smscan.configfn.fn   = @smabufconfig_buframp;
+smscan.configfn.args = {'trig'};   % ctrl='trig '，getchanInd=0(不筛选)
 
 
 %% figure out the next scan number (##_.mat)
@@ -157,27 +208,27 @@ disp(['The current time is: ' datestr(datetime)]);
 
 
 % run the scan with appropriate filename
-smrun(smscan, scanFilename);
+smrun_buf(smscan, scanFilename);
 
-% save the plot from the scan to a ppt
-slide = struct;
-slide.title = [smscan.name '_' num2str(runNumber) '.mat'];
-slide.body = smscan.comments;
-slide.loops = smscan.loops;
-slide.consts = smscan.consts;
-try
-    % test plot on figure 1000
-    if strcmp(smaux.pptMode, 'ppt')
-        smsaveppt(smaux.pptsavefile, slide, '-f1000');
-    elseif strcmp(smaux.pptMode, 'pptx')
-        smsavepptx(smaux.pptsavefile, slide, '-f1000');
-    end
-catch
-    warning(['There was an error saving to the ppt for scan ' num2str(runNumber) '; continuing']);
-end
-toc;
-
-
+% % save the plot from the scan to a ppt
+% slide = struct;
+% slide.title = [smscan.name '_' num2str(runNumber) '.mat'];
+% slide.body = smscan.comments;
+% slide.loops = smscan.loops;
+% slide.consts = smscan.consts;
+% try
+%     % test plot on figure 1000
+%     if strcmp(smaux.pptMode, 'ppt')
+%         smsaveppt(smaux.pptsavefile, slide, '-f1000');
+%     elseif strcmp(smaux.pptMode, 'pptx')
+%         smsavepptx(smaux.pptsavefile, slide, '-f1000');
+%     end
+% catch
+%     warning(['There was an error saving to the ppt for scan ' num2str(runNumber) '; continuing']);
+% end
+% toc;
+% 
+% 
 function myUpdatedScan = UpdateConstants(myScan)
 % copied from smgui
 %global smaux smscan;

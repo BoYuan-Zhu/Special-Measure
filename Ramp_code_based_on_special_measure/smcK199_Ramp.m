@@ -38,7 +38,6 @@ switch ic(2)
                 % Try standard SCPI DC volt measurement
                 try
                     txt = query(inst, ':MEASure:VOLTage:DC?');
-                    
                     numstr = regexp(txt, '[-+]?\d+(\.\d+)?([eE][-+]?\d+)?', 'match');
                     if ~isempty(numstr)
                         val = str2double(numstr{1});
@@ -82,7 +81,6 @@ switch ic(2)
             case 0  % read measured current (DC)
                 try
                     txt = query(inst, ':MEASure:CURRent:DC?');
-                    
                     numstr = regexp(txt, '[-+]?\d+(\.\d+)?([eE][-+]?\d+)?', 'match');
                     if ~isempty(numstr)
                         val = str2double(numstr{1});
@@ -114,56 +112,41 @@ switch ic(2)
             otherwise
                 error('smcK199_Ramp: Operation not supported for channel I.');
         end
- 
-    case 3  % Voltage compliance (Vcompl) - read/write protection if supported
+
+    case 3  % OHMS
         switch ic(3)
-            case 0  % read compliance voltage (protection)
-                % Try SCPI style protection query
+            case 0  % read measured current (DC)
                 try
-                    txt = query(inst, ':SENSe:VOLTage:PROTection?');
-                    val = str2double(strtrim(txt));
+                    txt = query(inst, ':ROX');
+                    txt = query(inst, ':F2X');
+                    numstr = regexp(txt, '[-+]?\d+(\.\d+)?([eE][-+]?\d+)?', 'match');
+                    if ~isempty(numstr)
+                        val = str2double(numstr{1});
+                    else
+                        val = NaN;
+                    end
+                    if isnan(val)
+                        error('NaN from SCPI read; fallback');
+                    end
                 catch
-                    % If unsupported, return NaN but don't error
-                    warning('smcK199_Ramp: V compliance query failed (command may not be supported on K199).');
-                    val = NaN;
-                end
-            case 1  % write compliance voltage (set protection)
-                try
-                    cmd = sprintf(':SENSe:VOLTage:PROTection %g', val);
-                    fprintf(inst, cmd);
-                catch ME
-                    error('smcK199_Ramp: failed to set V protection: %s', ME.message);
+                    % Fallback to GET style
+                    try
+                        fprintf(inst, 'BOX');
+                        fprintf(inst, 'GET');
+                        raw = fgetl(inst);
+                        valNum = sscanf(raw, '%g');
+                        if isempty(valNum)
+                            val = NaN;
+                        else
+                            val = valNum(1);
+                        end
+                    catch ME
+                        warning('smcK199_Ramp (I read) fallback failed: %s', ME.message);
+                        val = NaN;
+                    end
                 end
             otherwise
-                error('smcK199_Ramp: Operation not supported for Vcompl.');
+                error('smcK199_Ramp: Operation not supported for channel I.');
         end
- 
-    case 4  % Current compliance (Icompl) - read/write protection
-        switch ic(3)
-            case 0
-                try
-                    txt = query(inst, ':SENSe:CURRent:PROTection?');
-                    val = str2double(strtrim(txt));
-                catch
-                    warning('smcK199_Ramp: I compliance query failed (command may not be supported on K199).');
-                    val = NaN;
-                end
-            case 1
-                try
-                    cmd = sprintf(':SENSe:CURRent:PROTection %g', val);
-                    fprintf(inst, cmd);
-                catch ME
-                    error('smcK199_Ramp: failed to set I protection: %s', ME.message);
-                end
-            otherwise
-                error('smcK199_Ramp: Operation not supported for Icompl.');
-        end
- 
-    otherwise
-        error('smcK199_Ramp: Unknown logical channel index %d', ic(2));
-end
- 
-
-
-
+   
 end

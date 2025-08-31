@@ -262,15 +262,26 @@ end
 
 function LoadScan(hObject,eventdata)
     [smscanFile,smscanPath] = uigetfile('*.mat','Select Scan File');
-    S=load (fullfile(smscanPath,smscanFile));
-    smscan=S.smscan;
-    if isfield(smscan,'consts') && ~isfield(smscan.consts,'set')
-        for i=1:length(smscan.consts)
-            smscan.consts(i).set=1;
+    S = load(fullfile(smscanPath, smscanFile));
+    smscan = S.smscan;
+
+    % --- NEW: normalize consts entries ---
+    if ~isfield(smscan,'consts') || isempty(smscan.consts)
+        smscan.consts = struct('setchan',{},'val',{},'set',{});
+    else
+        for i = 1:numel(smscan.consts)
+            if ~isfield(smscan.consts(i),'set'),     smscan.consts(i).set = 1; end
+            if ~isfield(smscan.consts(i),'val'),     smscan.consts(i).val = 0; end
+            if ~isfield(smscan.consts(i),'setchan') || isempty(smscan.consts(i).setchan)
+                smscan.consts(i).setchan = 'none';   % placeholder
+            end
         end
     end
+    % -------------------------------------
+
     scaninit;
 end
+
 
 function OpenRack(hObject,eventdata)
     [smdataFile,smdataPath] = uigetfile('*.mat','Select Rack File');
@@ -497,29 +508,52 @@ end
 %Callback for update constants pushbutton
 function UpdateConstants(varargin)
     global smaux smscan;
-    allchans = {};
-    if isfield(smscan.consts,'setchan')
-        allchans = {smscan.consts.setchan};
-    end
+
     setchans = {};
-    setvals = [];
-    for i=1:length(smscan.consts)
-        if smscan.consts(i).set
-            setchans{end+1}=smscan.consts(i).setchan;
-            setvals(end+1)=smscan.consts(i).val;
+    setvals  = [];
+    allchans = {};
+
+    if isfield(smscan,'consts') && ~isempty(smscan.consts)
+        for i = 1:numel(smscan.consts)
+            hasChan = isfield(smscan.consts(i),'setchan') ...
+                      && ~isempty(smscan.consts(i).setchan) ...
+                      && ~strcmp(smscan.consts(i).setchan,'none');
+
+            if hasChan
+                allchans{end+1} = smscan.consts(i).setchan; %#ok<AGROW>
+            end
+            if hasChan && isfield(smscan.consts(i),'set') && smscan.consts(i).set
+                setchans{end+1} = smscan.consts(i).setchan; %#ok<AGROW>
+                setvals(end+1)  = smscan.consts(i).val;     %#ok<AGROW>
+            end
         end
     end
-    smset(setchans, setvals);
-    newvals = cell2mat(smget(allchans));
-    for i=1:length(smscan.consts)
-        smscan.consts(i).val=newvals(i);
-        if abs(floor(log10(newvals(i))))>3
-            set(smaux.smgui.consts_eth(i),'String',sprintf('%0.1e',newvals(i)));
-        else
-            set(smaux.smgui.consts_eth(i),'String',round(1000*newvals(i))/1000);
+
+    % Only set when there is something valid to set
+    if ~isempty(setchans)
+        smset(setchans, setvals);
+    end
+
+    % Refresh displayed values (only for valid channels we queried)
+    if ~isempty(allchans)
+        newvals = cell2mat(smget(allchans));
+        k = 1;
+        for i = 1:numel(smscan.consts)
+            hasChan = isfield(smscan.consts(i),'setchan') ...
+                      && ~isempty(smscan.consts(i).setchan) ...
+                      && ~strcmp(smscan.consts(i).setchan,'none');
+            if hasChan
+                smscan.consts(i).val = newvals(k); k = k+1;
+                if abs(floor(log10(abs(smscan.consts(i).val)))) > 3
+                    set(smaux.smgui.consts_eth(i),'String',sprintf('%0.1e',smscan.consts(i).val));
+                else
+                    set(smaux.smgui.consts_eth(i),'String',round(1000*smscan.consts(i).val)/1000);
+                end
+            end
         end
     end
 end
+
 
  % Callback for data file location pushbutton
 function SavePath(varargin)
@@ -727,8 +761,13 @@ function Run(varargin)
             end
         end
                     
-                
+      if ~isfield(smscan, 'consts')
+            smscan.consts = struct('set', {}, 'setchan', {}, 'val', {});
+       end
+
       UpdateConstants;
+        smscan.configfn.fn   = @smabufconfig_buframp;
+        smscan.configfn.args = {'trig'};  
       smrun_buf(smscan,datasaveFile);
     if get(smaux.smgui.appendppt_cbh,'Value')
         slide.title = [runstring '_' filestring '.mat']; %make index first
