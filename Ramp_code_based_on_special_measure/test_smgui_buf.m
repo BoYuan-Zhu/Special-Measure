@@ -15,11 +15,6 @@
 clear all; close all; %instrreset;
 global smaux smscan smdata;
 
-%% -------------------- Meta & paths --------------------
-smscan.comments = ['Graphene @ RT Gr Vg test on Gr gate pin 18, Si gate gnd.' newline ...
-    'iac1 5 nA 17.7777 Hz with 100 Mohm on 17-14, iac2 measures voltage drop 17-14.'];
-smscan.name = 'Graphene';
-
 % === Adjust these paths to your environment ===
 smaux.datadir     = 'C:\Users\86155\Desktop\sjtu_3\summer intern\special measure\test';
 smaux.pptsavefile = smaux.datadir;    % folder or a .ppt/.pptx file path
@@ -124,37 +119,6 @@ smaddchannel('Fun3', 'VAR1', 'log10Freq'); %
 %% 
 smprintinst
 smprintchannels
-smscan.loops(1) = struct();
-smscan.loops(2) = struct();
-smscan.saveloop = 2;
-
-if ~isfield(smaux,'run')
-    smaux.run=100;
-end
-
-smaux.initialized=1;
-smscan.loops = struct;
-smscan.loops(1).npoints = 1;
-smscan.loops(1).rng = [];
-smscan.loops(1).getchan = {};
-smscan.loops(1).readchan = {};
-smscan.loops(1).setchan = {};
-smscan.loops(1).ramptime = 0;
-smscan.loops(1).waittime = 0;
-
-
-
-smscan.loops(2).npoints = 1;
-smscan.loops(2).rng = [];
-smscan.loops(2).getchan = {};
-smscan.loops(2).setchan = {};
-smscan.loops(2).readchan = {};
-smscan.loops(2).ramptime = 0;
-smscan.loops(2).waittime = 0;
-
-smscan.disp(1).loop    = 2;   % data are acquired in loop 2
-smscan.disp(1).channel = 1;   % channel index within getchan of loop 2
-smscan.disp(1).dim     = 1;   % 1D trace
 
 sm;
 smgui_buf;
