@@ -258,7 +258,7 @@ case 7 % Ig-buf  —— Buffered current on 2450
             % (No TRIGger:LOAD "LoopUntilEvent", to avoid lockout)
             fprintf(inst, ':SENSe:CURRent:NPLCycles 1.000');   % keep your NPLC
           
-
+            
 
             smdata.inst(ic(1)).data.RampPts = 0;  % reset planned points (optional)
             val = [];  % nothing to return
@@ -285,7 +285,7 @@ case 7 % Ig-buf  —— Buffered current on 2450
             % Parse CSV to double row vector
             vals = sscanf(raw, '%g,');  % column vector
             val  = vals.';              % row vector as MATLAB cell return expects later
-
+            fprintf(inst,':ABORt;:TRIG:LOAD "Empty";:TRACe:CLEar "defbuffer1";:count 1;:trig:cont REST');
             % Optional: clear or keep buffer depending on your workflow
             % fprintf(inst, ':TRACe:CLEar "defbuffer1"');
 
