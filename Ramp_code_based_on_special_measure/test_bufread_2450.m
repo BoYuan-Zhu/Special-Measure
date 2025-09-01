@@ -30,6 +30,7 @@ GPIB_BOARD        = 'ni';
 BOARD_NUM         = 0;
 LockInHigh_GPIB   = 1;   % SR830 GPIB address
 K2450_GPIB        = 18;  % K2450 GPIB address
+K2450_GPIB_2        = 19;  % K2450 GPIB address
 
 %% -------------------- Dummy instrument (for outer loop) --------------------
 smloadinst('test');
@@ -76,6 +77,7 @@ end
 
 
 
+
 % 
 % innerLoopChannel = 'Vg';
 % myChannel = 'Ig-buf';
@@ -115,9 +117,9 @@ maxInnerLoop = -4;
 myChannel = {  'Ig-buf' 'Iac1-buf'  'Iac1-phase-buf'};
 
 outerLoopChannel = 'dummy';
-npointsOuterLoop = 1;
+npointsOuterLoop = 11;
 minOuterLoop = 1;
-maxOuterLoop = 1;
+maxOuterLoop = 10;
 
 
 tic;
@@ -133,7 +135,7 @@ smscan.disp = struct([]);
 for k = 1:numel(myChannel)
     smscan.disp(k).loop    = 2;   % data are acquired in loop 2
     smscan.disp(k).channel = k;   % channel index within getchan of loop 2
-    smscan.disp(k).dim     = 1;   % 1D trace
+    smscan.disp(k).dim     = 2;   % 1D trace
 end
 
 smscan.loops = struct;
@@ -184,7 +186,7 @@ disp(['The current time is: ' datestr(datetime)]);
 
 
 % run the scan with appropriate filename
-smrun_buf(smscan, scanFilename);
+smrun(smscan, scanFilename);
 
 % % save the plot from the scan to a ppt
 % slide = struct;

@@ -41,7 +41,7 @@ switch ic(2) % Channels
         switch ic(3); %Operation: 0 for read, 1 for write
             case 0 %read measured current
                 % Stop continuous updating, measure the current and read the voltage readback
-                fprintf(smdata.inst(ic(1)).data.inst,setupcmd);
+                %fprintf(smdata.inst(ic(1)).data.inst,setupcmd);
                 val = query(smdata.inst(ic(1)).data.inst,':SENSe:COUNt 1;:MEASure:CURRent? "defbuffer1", READ','%s\n','%g');
                 % continuous updating.
                 fprintf(smdata.inst(ic(1)).data.inst, continuesupdatingcmd);

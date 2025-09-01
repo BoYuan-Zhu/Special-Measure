@@ -48,6 +48,7 @@ end
        'Toolbar','none',...
        'Resize','off');
    movegui(smaux.smgui.figure1,'center')
+
    
    %put everything in this panel for aesthetic purposes
    smaux.smgui.nullpanel=uipanel('Parent',smaux.smgui.figure1,...
@@ -195,7 +196,20 @@ end
         'Position',[135 672 15 20],...
         'TooltipString','Data is saved during this loop. Setting to 1 will save at each point',...
         'Callback',@SaveLoop);
-    
+     %%% INSERT HERE %%%
+    parentPanel = smaux.smgui.figure1;
+    if isfield(smaux,'smgui') && isfield(smaux.smgui,'nullpanel') && isgraphics(smaux.smgui.nullpanel)
+        parentPanel = smaux.smgui.nullpanel;
+    end
+    smaux.smgui.bufread_cbh = uicontrol('Parent', parentPanel, 'Style','checkbox', ...
+        'String','buf_read mode', ...
+        'HorizontalAlignment','left', ...
+        'TooltipString','Use smabufconfig_buframp with ctrl=''trig''', ...
+        'Position',[5 655 170 18], ...
+        'Callback',@BufReadToggle);
+    %%% /INSERT HERE %%%
+
+
     smaux.smgui.commenttext_sth = uicontrol('Parent',smaux.smgui.nullpanel,'Style','text',...
         'String','Comments:',...
         'HorizontalAlignment','left',...
@@ -262,26 +276,15 @@ end
 
 function LoadScan(hObject,eventdata)
     [smscanFile,smscanPath] = uigetfile('*.mat','Select Scan File');
-    S = load(fullfile(smscanPath, smscanFile));
-    smscan = S.smscan;
-
-    % --- NEW: normalize consts entries ---
-    if ~isfield(smscan,'consts') || isempty(smscan.consts)
-        smscan.consts = struct('setchan',{},'val',{},'set',{});
-    else
-        for i = 1:numel(smscan.consts)
-            if ~isfield(smscan.consts(i),'set'),     smscan.consts(i).set = 1; end
-            if ~isfield(smscan.consts(i),'val'),     smscan.consts(i).val = 0; end
-            if ~isfield(smscan.consts(i),'setchan') || isempty(smscan.consts(i).setchan)
-                smscan.consts(i).setchan = 'none';   % placeholder
-            end
+    S=load (fullfile(smscanPath,smscanFile));
+    smscan=S.smscan;
+    if isfield(smscan,'consts') && ~isfield(smscan.consts,'set')
+        for i=1:length(smscan.consts)
+            smscan.consts(i).set=1;
         end
     end
-    % -------------------------------------
-
     scaninit;
 end
-
 
 function OpenRack(hObject,eventdata)
     [smdataFile,smdataPath] = uigetfile('*.mat','Select Rack File');
@@ -453,21 +456,18 @@ function GetChannel(hObject,eventdata,i,j)
 global smaux smscan smdata;
     val = get(smaux.smgui.loopvars_getchans_pmh(i,j),'Value');
     if val==1
-        smscan.loops(i).getchan(j)=[];         % 'none' => remove entry
+        smscan.loops(i).getchan(j)=[];
     else
         smscan.loops(i).getchan{j}=smdata.channels(val-1).name;
     end
-
-    % --- Mirror loop 2's getchan into loop 1's readchan ---
-    if length(smscan.loops) >= 2
-        smscan.loops(1).readchan = smscan.loops(2).getchan;
-        if isempty(smscan.loops(1).readchan), smscan.loops(1).readchan = {}; end
-    end
-
     smscan.disp=[];
     makelooppanels;
-end
+    % Mirror: whenever Loop 2 getchan changes, update Loop 1 readchan.
+    if i == 2
+        smscan.loops(1).readchan = smscan.loops(2).getchan;
+    end
 
+end
 
 %Callback for the constants pmh
 function ConstMenu(hObject,eventdata,i)
@@ -508,52 +508,29 @@ end
 %Callback for update constants pushbutton
 function UpdateConstants(varargin)
     global smaux smscan;
-
-    setchans = {};
-    setvals  = [];
     allchans = {};
-
-    if isfield(smscan,'consts') && ~isempty(smscan.consts)
-        for i = 1:numel(smscan.consts)
-            hasChan = isfield(smscan.consts(i),'setchan') ...
-                      && ~isempty(smscan.consts(i).setchan) ...
-                      && ~strcmp(smscan.consts(i).setchan,'none');
-
-            if hasChan
-                allchans{end+1} = smscan.consts(i).setchan; %#ok<AGROW>
-            end
-            if hasChan && isfield(smscan.consts(i),'set') && smscan.consts(i).set
-                setchans{end+1} = smscan.consts(i).setchan; %#ok<AGROW>
-                setvals(end+1)  = smscan.consts(i).val;     %#ok<AGROW>
-            end
+    if isfield(smscan.consts,'setchan')
+        allchans = {smscan.consts.setchan};
+    end
+    setchans = {};
+    setvals = [];
+    for i=1:length(smscan.consts)
+        if smscan.consts(i).set
+            setchans{end+1}=smscan.consts(i).setchan;
+            setvals(end+1)=smscan.consts(i).val;
         end
     end
-
-    % Only set when there is something valid to set
-    if ~isempty(setchans)
-        smset(setchans, setvals);
-    end
-
-    % Refresh displayed values (only for valid channels we queried)
-    if ~isempty(allchans)
-        newvals = cell2mat(smget(allchans));
-        k = 1;
-        for i = 1:numel(smscan.consts)
-            hasChan = isfield(smscan.consts(i),'setchan') ...
-                      && ~isempty(smscan.consts(i).setchan) ...
-                      && ~strcmp(smscan.consts(i).setchan,'none');
-            if hasChan
-                smscan.consts(i).val = newvals(k); k = k+1;
-                if abs(floor(log10(abs(smscan.consts(i).val)))) > 3
-                    set(smaux.smgui.consts_eth(i),'String',sprintf('%0.1e',smscan.consts(i).val));
-                else
-                    set(smaux.smgui.consts_eth(i),'String',round(1000*smscan.consts(i).val)/1000);
-                end
-            end
+    smset(setchans, setvals);
+    newvals = cell2mat(smget(allchans));
+    for i=1:length(smscan.consts)
+        smscan.consts(i).val=newvals(i);
+        if abs(floor(log10(newvals(i))))>3
+            set(smaux.smgui.consts_eth(i),'String',sprintf('%0.1e',newvals(i)));
+        else
+            set(smaux.smgui.consts_eth(i),'String',round(1000*newvals(i))/1000);
         end
     end
 end
-
 
  % Callback for data file location pushbutton
 function SavePath(varargin)
@@ -670,14 +647,15 @@ function Plot(varargin)
        smscan.disp(i).channel=vals1d(i);
        smscan.disp(i).dim=1;
     end
+    % 2D selections → always display on loop 2 (fallback to 1 if only one loop)
     for i = (length(vals1d)+1):(length(vals1d)+length(vals2d))
-       smscan.disp(i).loop=plotchoices.loop(vals2d(i-length(vals1d)))+1;
-       smscan.disp(i).channel=vals2d(i-length(vals1d));
-       smscan.disp(i).dim=2;
+        idx = i - length(vals1d);
+        smscan.disp(i).loop    = min(2, length(smscan.loops));  % force loop 2 when available
+        smscan.disp(i).channel = vals2d(idx);
+        smscan.disp(i).dim     = 2;
     end
-    
-    setplotchoices;
-end
+        setplotchoices;
+    end
 
 %populates plot choices
 function setplotchoices(varargin)
@@ -761,14 +739,9 @@ function Run(varargin)
             end
         end
                     
-      if ~isfield(smscan, 'consts')
-            smscan.consts = struct('set', {}, 'setchan', {}, 'val', {});
-       end
-
+                
       UpdateConstants;
-        smscan.configfn.fn   = @smabufconfig_buframp;
-        smscan.configfn.args = {'trig'};  
-      smrun_buf(smscan,datasaveFile);
+      smrun(smscan,datasaveFile);
     if get(smaux.smgui.appendppt_cbh,'Value')
         slide.title = [runstring '_' filestring '.mat']; %make index first
         slide.body = smscan.comments;
@@ -808,6 +781,7 @@ function Update(varargin)
         smscan.loops(1).rng=[0 1];
         smscan.loops(1).getchan={};
         smscan.loops(1).setchan={};
+        smscan.loops(1).readchan={};   % NEW
         smscan.loops(1).setchanranges={};
         smscan.loops(1).ramptime=[];
         smscan.loops(1).trafofn={};
@@ -873,17 +847,19 @@ function scaninit(varargin)
         else
             smscan.comments='';
         end
-        % Ensure loop 1 readchan mirrors loop 2 getchan on init
-        if length(smscan.loops) >= 2
-            if ~isfield(smscan.loops(1),'readchan') || ~isequal(smscan.loops(1).readchan, smscan.loops(2).getchan)
-                smscan.loops(1).readchan = smscan.loops(2).getchan;
-                if isempty(smscan.loops(1).readchan), smscan.loops(1).readchan = {}; end
-            end
-        end
-
         makelooppanels;
         setplotchoices;
         makeconstpanel;
+        % Reflect buf_read checkbox from current smscan.configfn
+        try
+            isBuf = isfield(smscan,'configfn') && isfield(smscan.configfn,'fn') ...
+                    && isa(smscan.configfn.fn,'function_handle') ...
+                    && strcmp(func2str(smscan.configfn.fn),'smabufconfig_buframp');
+            set(smaux.smgui.bufread_cbh,'Value', isBuf);
+        catch
+            set(smaux.smgui.bufread_cbh,'Value', 0);
+        end
+
 end
 
 % make or delete looppanels
@@ -909,6 +885,7 @@ function makelooppanels(varargin)
             smscan.loops(i).npoints=101;
             smscan.loops(i).rng=[0 1];
             smscan.loops(i).getchan=[];
+            smscan.loops(i).readchan=[];
             smscan.loops(i).setchan={'none'};
             smscan.loops(i).setchanranges={[0 1]};
             smscan.loops(i).ramptime=[];
@@ -999,17 +976,17 @@ function makelooppanels(varargin)
 
 
         %Add popup menus for get channels 
-        % Show "Record" controls only on the saveloop (e.g., loop 2)
-        if isfield(smscan,'saveloop') && ~isempty(smscan.saveloop) && i == smscan.saveloop
-            smaux.smgui.looprec_sth(i) = uicontrol('Parent',smaux.smgui.loop_panels_ph(i),...
-                'Style','text',...
-                'String','Record:',...
-                'HorizontalAlignment','center',...
-                'Position',[5 35 50 20]);
-            makeloopgetchans(i);  % only build the getchan popups here
-        end
+        smaux.smgui.loopvars_sth(i,4) = uicontrol('Parent',smaux.smgui.loop_panels_ph(i),...
+            'Style','text',...
+            'String','Record:',...
+            'HorizontalAlignment','center',...
+            'Position',[5 35 50 20]);
+        makeloopgetchans(i);
+        % Keep Loop 1 readchan mirrored to Loop 2 getchan (if both loops exist)
+            if numloops >= 2
+                smscan.loops(1).readchan = smscan.loops(2).getchan;
+            end
         setplotchoices;
-
     end
 
 
@@ -1338,10 +1315,9 @@ function makeconstpanel(varargin)
 end
 
 %Set the loop where data is aved
-%Set the loop where data is saved
 function SaveLoop(hObject,eventdata)
     global smaux smdata smscan;
-    val = str2double(get(smaux.smgui.saveloop_eth,'String'));   % <-- fixed handle name
+    val = str2double(get(smaux.smgui.saveloop_eth,'String'));
     if (isnan(val) || mod(val,1)~=0 || val<1)
         errordlg('Please enter a positive integer','Invalid Input Value');
         set(smaux.smgui.saveloop_eth,'String',1);
@@ -1352,24 +1328,25 @@ function SaveLoop(hObject,eventdata)
     else
         smscan.saveloop = val;
     end
-
-    % Keep recording only on the selected saveloop; clear others
-    for ii = 1:length(smscan.loops)
-        if ii ~= smscan.saveloop
-            smscan.loops(ii).getchan = {};     % no record channels on other loops
-        end
-    end
-    % Mirror loop 2 -> loop 1 readchan
-    if length(smscan.loops) >= 2
-        smscan.loops(1).readchan = smscan.loops(2).getchan;
-        if isempty(smscan.loops(1).readchan), smscan.loops(1).readchan = {}; end
-    end
-
+       
     makelooppanels;
     makeconstpanel;
 end
 
-
+function BufReadToggle(varargin)
+    global smscan smaux;
+    val = get(smaux.smgui.bufread_cbh,'Value');
+    if val
+        % Enable buffer-read configuration
+        smscan.configfn.fn   = @smabufconfig_buframp;
+        smscan.configfn.args = {'trig'};  % ctrl='trig'
+    else
+        % Disable: remove configfn for a clean slate
+        if isfield(smscan,'configfn')
+            smscan = rmfield(smscan,'configfn');
+        end
+    end
+end
 
 
 %Change the number of loops in the scan
@@ -1391,6 +1368,7 @@ function NumLoops(hObject,eventdata)
                 smscan.loops(i).npoints=101;
                 smscan.loops(i).rng=[0 1];
                 smscan.loops(i).getchan=[];
+                smscan.loops(i).readchan=[];
                 smscan.loops(i).setchan={'none'};
                 smscan.loops(i).setchanranges={[0 1]};
                 smscan.loops(i).ramptime=[];

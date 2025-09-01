@@ -16,7 +16,7 @@ smaux.pptMode     = 'ppt';            % 'ppt' or 'pptx'
 GPIB_BOARD        = 'ni';
 BOARD_NUM         = 0;
 K2450_GPIB        = 18;  % K2450 GPIB address
-K199_GPIB         = 26;   % K199 GPIB address
+K199_GPIB         = 27;   % K199 GPIB address
 
 %% -------------------- Dummy instrument (for outer loop) --------------------
 smloadinst('test');

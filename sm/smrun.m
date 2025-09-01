@@ -209,12 +209,19 @@ for i = 1:nloops
     end
 
     % default for ramp?
-    
-    scandef(i).setchan = smchanlookup(scandef(i).setchan);
-    scandef(i).getchan = smchanlookup(scandef(i).getchan);
-   
+       if ~isfield(scandef,'readchan')
+        [scandef.readchan] = deal([]);   % add empty readchan to each loop
+       end
+        
+        % --- inside the per-loop setup where you do lookups ---
+        scandef(i).setchan = smchanlookup(scandef(i).setchan);
+        scandef(i).getchan = smchanlookup(scandef(i).getchan);
+        if ~isempty(scandef(i).readchan)
+            scandef(i).readchan = smchanlookup(scandef(i).readchan);
+        else
+            scandef(i).readchan = [];
+        end
 
-    
     nsetchan(i) = length(scandef(i).setchan);
 
     %procfn defaults
@@ -503,10 +510,13 @@ loops = 1:nloops; % indices of loops to be updated. 1 = fastest loop
 %%Main loop
 for i = 1:totpoints    
     % update a loop if all faster loops are at first val
-    if i > 1 ;
-        loops = 1:find(count > 1, 1);        
+    if i > 1 
+        loops = 1:find(count > 1, 1);   
+%     elseif i == 1
+%           
+%         loops = 1:nloops;              
     end       
-    
+     
     for j = loops
         x(j) = scandef(j).rng(count(j));
     end
@@ -579,7 +589,7 @@ for i = 1:totpoints
         % if the field 'waittime' was in scan.loops(j), then wait that
         % amount of time now
         if isfield(scandef,'waittime')
-            pause(scandef(j).waittime)
+            pause(scandef(j).waittime);
         end
 
         % trigger after waiting for first point.
@@ -589,6 +599,23 @@ for i = 1:totpoints
 
 
     end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
     % read loops if all subsequent loops are at max count, outer loops last
     loops = 1:find(count < npoints, 1);
     if isempty(loops)
@@ -597,7 +624,21 @@ for i = 1:totpoints
     for j = loops(~isdummy(loops))
         % could save a function call/data copy here - not a lot of code               
         newdata = smget(scandef(j).getchan);
-        
+    % --- in the acquisition section, right after smget(...) ---
+        if ~isempty(scandef(j).readchan)
+            smread(scandef(j).readchan);   % only if provided
+        end
+
+
+
+
+
+
+
+
+
+
+
         if isfield(scandef, 'postfn')
             fncall(scandef(j).postfn, xt);
         end
