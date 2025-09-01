@@ -39,7 +39,7 @@ smaddchannel('test','CH2','count');
 
 %% -------------------- SR830 --------------------
 try
-    ind_sr = smloadinst('SR830_1', [], GPIB_BOARD, BOARD_NUM, LockInHigh_GPIB);
+    ind_sr = smloadinst('SR830_Ramp', [], GPIB_BOARD, BOARD_NUM, LockInHigh_GPIB);
     smopen(ind_sr);
     smdata.inst(ind_sr).name    = 'LockIn_High';
     smdata.inst(ind_sr).cntrlfn = @smcSR830_spm;
@@ -60,7 +60,7 @@ end
 
 %% -------------------- K2450 --------------------
 try
-    ind_k = smloadinst('k2450_2', [], 'ni', 0, K2450_GPIB);
+    ind_k = smloadinst('k2450_Ramp', [], 'ni', 0, K2450_GPIB);
     smopen(ind_k);
     smdata.inst(ind_k).name    = 'K2450';
     smdata.inst(ind_k).cntrlfn = @smcK2450_Ramp;
