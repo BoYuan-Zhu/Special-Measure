@@ -21,7 +21,7 @@ smscan.comments = ['Graphene @ RT Gr Vg test on Gr gate pin 18, Si gate gnd.' ne
 smscan.name = 'Graphene';
 
 % === Adjust these paths to your environment ===
-smaux.datadir     = 'C:\Users\86155\Desktop\sjtu_3\summer intern\special measure\test';
+smaux.datadir     = 'C:\Users\WangLabAdmin\Desktop\Users\boyuan\SpecialMeasure\buffer-test\test';
 smaux.pptsavefile = smaux.datadir;    % folder or a .ppt/.pptx file path
 smaux.pptMode     = 'ppt';            % 'ppt' or 'pptx'
 
@@ -38,7 +38,7 @@ smaddchannel('test','CH2','count');
 
 %% -------------------- SR830 --------------------
 try
-    ind_sr = smloadinst('SR830_1', [], GPIB_BOARD, BOARD_NUM, LockInHigh_GPIB);
+    ind_sr = smloadinst('SR830_Ramp', [], GPIB_BOARD, BOARD_NUM, LockInHigh_GPIB);
     smopen(ind_sr);
     smdata.inst(ind_sr).name    = 'LockIn_High';
     smdata.inst(ind_sr).cntrlfn = @smcSR830_spm;
@@ -59,7 +59,7 @@ end
 
 %% -------------------- K2450 --------------------
 try
-    ind_k = smloadinst('k2400_1', [], 'ni', 0, K2450_GPIB);
+    ind_k = smloadinst('k2400_Ramp', [], 'ni', 0, K2450_GPIB);
     smopen(ind_k);
     smdata.inst(ind_k).name    = 'K2400';
     smdata.inst(ind_k).cntrlfn = @smcK2400_Ramp;
@@ -100,8 +100,8 @@ end
 %%============ Vbg vs dummy
 % Set channel of measurement: yoko, dc205 or keithley
 innerLoopChannel = 'V';
-ramptimeInnerLoop = 1; 
-npointsInnerLoop = 51;
+ramptimeInnerLoop = 0; 
+npointsInnerLoop = 11;
 minInnerLoop = 4;
 maxInnerLoop = -4;
 %% 
@@ -183,7 +183,7 @@ disp(['The current time is: ' datestr(datetime)]);
 
 
 % run the scan with appropriate filename
-smrun_buf(smscan, scanFilename);
+smrun(smscan, scanFilename);
 
 % % save the plot from the scan to a ppt
 % slide = struct;

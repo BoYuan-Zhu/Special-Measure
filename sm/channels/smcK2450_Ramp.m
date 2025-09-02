@@ -16,7 +16,7 @@ global smdata;
 % %  MAKE SURE SOURCE VOLTAGE AND MEASURE CURRENT
 % fprintf(smdata.inst(ic(1)).data.inst,':ABORt;:SOURce:FUNCtion:MODE VOLT;:SENSe:FUNCtion "CURRent"');
 setupcmd = '*RST;:ABORt;:SOURce:FUNCtion:MODE VOLT;:SENSe:FUNCtion "CURRent";:SENSe:CURRent:RANGe 1E-3;:SENSe:CURRent:NPLCycles 1.000;';
-continuesupdatingcmd = ':SOURce:VOLTage:READ:BACK 1;:SENSe:CURRent:NPLCycles 1.000;:TRIGger:LOAD "LoopUntilEvent", DISP, 50;:INIT';
+continuesupdatingcmd = 'count 1;:trig:cont REST';
 switch ic(2) % Channels
     case 1 %Vg
         switch ic(3); %Operation: 0 for read, 1 for write
@@ -42,9 +42,11 @@ switch ic(2) % Channels
             case 0 %read measured current
                 % Stop continuous updating, measure the current and read the voltage readback
                 %fprintf(smdata.inst(ic(1)).data.inst,setupcmd);
-                val = query(smdata.inst(ic(1)).data.inst,':SENSe:COUNt 1;:MEASure:CURRent? "defbuffer1", READ','%s\n','%g');
+                KO = query(smdata.inst(ic(1)).data.inst, 'count 2;:READ? "defbuffer1", SOUR, READ', '%s\n', '%g,%g');
+                val = KO(2);
                 % continuous updating.
                 fprintf(smdata.inst(ic(1)).data.inst, continuesupdatingcmd);
+                pause(0.01);
             case 1 %write operation; Do not use current source mode for now.
                 error('K2450 driver: Do not use current source mode for now');
                 % cmd = sprintf(':ABORt;:SOURce:FUNCtion:MODE CURR;:SOURce:CURRent %g', val);

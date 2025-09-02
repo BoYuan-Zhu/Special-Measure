@@ -460,14 +460,19 @@ global smaux smscan smdata;
     else
         smscan.loops(i).getchan{j}=smdata.channels(val-1).name;
     end
-    smscan.disp=[];
+        smscan.disp=[];
     makelooppanels;
-    % Mirror: whenever Loop 2 getchan changes, update Loop 1 readchan.
-    if i == 2
-        smscan.loops(1).readchan = smscan.loops(2).getchan;
-    end
 
+    % Mirror only when buf_read is ON; otherwise clear readchan
+    if i == 2
+        if get(smaux.smgui.bufread_cbh,'Value')
+            smscan.loops(1).readchan = smscan.loops(2).getchan;
+        else
+            smscan.loops(1).readchan = {};
+        end
+    end
 end
+
 
 %Callback for the constants pmh
 function ConstMenu(hObject,eventdata,i)
@@ -753,11 +758,29 @@ end
 % Callback to send smscan to smaux.scans
 function ToScans(varargin)
     global smaux smscan
-    smaux.scans{end+1}=smscan;
+    tmp = smscan;
+    tmp = sanitizeReadchan(tmp);          % ensure cell everywhere
+    smaux.scans{end+1} = tmp;
     sm
     sm_Callback('UpdateToGUI');
 end
 
+function scan = sanitizeReadchan(scan)
+    if ~isfield(scan,'loops'), return; end
+    for ii = 1:numel(scan.loops)
+        rc = [];
+        if isfield(scan.loops(ii),'readchan')
+            rc = scan.loops(ii).readchan;
+        end
+        if ischar(rc), rc = {rc}; end
+        if isempty(rc), rc = {}; end
+        if iscell(rc)
+            rc = rc(~cellfun('isempty',rc));
+            rc = reshape(rc,1,[]);
+        end
+        scan.loops(ii).readchan = rc;
+    end
+end
 % Callback to send smscan to smaux.queue
 function ToQueue(varargin)
     global smaux smscan
@@ -856,6 +879,7 @@ function scaninit(varargin)
                     && isa(smscan.configfn.fn,'function_handle') ...
                     && strcmp(func2str(smscan.configfn.fn),'smabufconfig_buframp');
             set(smaux.smgui.bufread_cbh,'Value', isBuf);
+            reflectReadchanToBufRead();
         catch
             set(smaux.smgui.bufread_cbh,'Value', 0);
         end
@@ -885,7 +909,7 @@ function makelooppanels(varargin)
             smscan.loops(i).npoints=101;
             smscan.loops(i).rng=[0 1];
             smscan.loops(i).getchan=[];
-            smscan.loops(i).readchan=[];
+            smscan.loops(i).readchan={};
             smscan.loops(i).setchan={'none'};
             smscan.loops(i).setchanranges={[0 1]};
             smscan.loops(i).ramptime=[];
@@ -982,10 +1006,9 @@ function makelooppanels(varargin)
             'HorizontalAlignment','center',...
             'Position',[5 35 50 20]);
         makeloopgetchans(i);
-        % Keep Loop 1 readchan mirrored to Loop 2 getchan (if both loops exist)
-            if numloops >= 2
-                smscan.loops(1).readchan = smscan.loops(2).getchan;
-            end
+        % Keep readchan in sync with buf_read checkbox
+        reflectReadchanToBufRead();
+
         setplotchoices;
     end
 
@@ -1341,16 +1364,18 @@ function BufReadToggle(varargin)
         smscan.configfn.fn   = @smabufconfig_buframp;
         smscan.configfn.args = {'trig'};  % ctrl='trig'
     else
-        % Disable: remove configfn for a clean slate
+        % Disable: remove configfn and clear all readchan
         if isfield(smscan,'configfn')
             smscan = rmfield(smscan,'configfn');
         end
     end
+    reflectReadchanToBufRead();  % keep readchan in sync with checkbox
 end
 
 
+
 %Change the number of loops in the scan
-function NumLoops(hObject,eventdata)
+function NumLoops(hObject,~)
     global smaux smdata smscan;
     val = str2double(get(smaux.smgui.numloops_eth,'String'));
     if (isnan(val) || mod(val,1)~=0 || val<1)
@@ -1368,7 +1393,7 @@ function NumLoops(hObject,eventdata)
                 smscan.loops(i).npoints=101;
                 smscan.loops(i).rng=[0 1];
                 smscan.loops(i).getchan=[];
-                smscan.loops(i).readchan=[];
+                smscan.loops(i).readchan={};
                 smscan.loops(i).setchan={'none'};
                 smscan.loops(i).setchanranges={[0 1]};
                 smscan.loops(i).ramptime=[];
@@ -1383,3 +1408,32 @@ function NumLoops(hObject,eventdata)
     makelooppanels;
     makeconstpanel;
 end
+
+function reflectReadchanToBufRead()
+    global smaux smscan;
+    if ~isfield(smscan,'loops') || isempty(smscan.loops), return; end
+
+    want = false;
+    if isfield(smaux,'smgui') && isfield(smaux.smgui,'bufread_cbh') && isgraphics(smaux.smgui.bufread_cbh)
+        want = logical(get(smaux.smgui.bufread_cbh,'Value'));
+    end
+
+    if want && numel(smscan.loops) >= 2
+        rc = smscan.loops(2).getchan;
+
+        % normalize to a row cell array with no empties
+        if ischar(rc), rc = {rc}; end
+        if isempty(rc), rc = {}; end
+        if iscell(rc)
+            rc = rc(~cellfun('isempty',rc));
+            rc = reshape(rc,1,[]);
+        end
+
+        smscan.loops(1).readchan = rc;  % full mirror (all channels)
+    else
+        for ii = 1:numel(smscan.loops)
+            smscan.loops(ii).readchan = {};
+        end
+    end
+end
+
