@@ -80,6 +80,41 @@ if ~isstruct(scan)
     scan=smscan;
 end
 
+% --- RAMP flag: decide before anything else ---
+smdata.ramp = 0;  % default
+try
+    cfg = [];
+    if exist('smscan','var') && isstruct(smscan) && isfield(smscan,'configfn') && ~isempty(smscan.configfn)
+        cfg = smscan.configfn;          % prefer smscan.configfn
+    elseif isfield(scan,'configfn') && ~isempty(scan.configfn)
+        cfg = scan.configfn;            % fall back to scan.configfn
+    end
+    if ~isempty(cfg)
+        found = false;
+        if iscell(cfg)
+            for ii = 1:numel(cfg)
+                f = cfg{ii}.fn;
+                if (isa(f,'function_handle') && isequal(f,@smabufconfig_buframp)) || ...
+                   (ischar(f) && strcmp(f,'smabufconfig_buframp'))
+                    found = true; break;
+                end
+            end
+        else
+            for ii = 1:numel(cfg)
+                f = cfg(ii).fn;
+                if (isa(f,'function_handle') && isequal(f,@smabufconfig_buframp)) || ...
+                   (ischar(f) && strcmp(f,'smabufconfig_buframp'))
+                    found = true; break;
+                end
+            end
+        end
+        if found, smdata.ramp = 1; end
+    end
+catch
+    smdata.ramp = 0;  % fail-safe
+end
+% --- /RAMP flag ---
+
  % handle setting up self-ramping trigger for inner loop if none is
  % provided
 if ~isempty(scan.loops(1).ramptime) && scan.loops(1).ramptime<0 && (~isfield(scan.loops(1),'trigfn') || ...
@@ -622,6 +657,12 @@ for i = 1:totpoints
         loops = 1:nloops;
     end
     for j = loops(~isdummy(loops))
+
+         % --- ramp flag: if this is the very last get across all loops ---
+        if j == nloops && i == totpoints
+            smdata.ramp = 0;
+        end
+
         % could save a function call/data copy here - not a lot of code               
         newdata = smget(scandef(j).getchan);
     % --- in the acquisition section, right after smget(...) ---
@@ -629,8 +670,7 @@ for i = 1:totpoints
             smread(scandef(j).readchan);   % only if provided
         end
 
-
-
+        
 
 
 
@@ -768,6 +808,7 @@ for i = 1:totpoints
         end
         
         set(figurenumber,'userdata',[]); % tag this figure as not being used by SM
+        smdata.ramp = 0;  
         return;
     end
     %% Pause operation with space bar    
@@ -810,6 +851,7 @@ end
 
 % saveas(gcf,filename,'fig');
 % saveas(gcf,filename,'pdf');  
+smdata.ramp = 0;   % ensure cleared on normal exit
 
 end
 

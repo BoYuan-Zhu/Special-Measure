@@ -757,13 +757,24 @@ end
 
 % Callback to send smscan to smaux.scans
 function ToScans(varargin)
-    global smaux smscan
+    global smaux smscan smaux
     tmp = smscan;
+
+    % --- INSERT: mirror loop(2).getchan -> loop(1).readchan ---
+    if isfield(tmp,'loops') && numel(tmp.loops) >= 2
+        % (uncomment the next line if you want to respect the checkbox)
+        % if isfield(smaux,'smgui') && isgraphics(smaux.smgui.bufread_cbh) && get(smaux.smgui.bufread_cbh,'Value')
+            tmp.loops(1).readchan = tmp.loops(2).getchan;
+        % end
+    end
+    % --- /INSERT ---
+
     tmp = sanitizeReadchan(tmp);          % ensure cell everywhere
     smaux.scans{end+1} = tmp;
     sm
     sm_Callback('UpdateToGUI');
 end
+
 
 function scan = sanitizeReadchan(scan)
     if ~isfield(scan,'loops'), return; end
@@ -783,11 +794,24 @@ function scan = sanitizeReadchan(scan)
 end
 % Callback to send smscan to smaux.queue
 function ToQueue(varargin)
-    global smaux smscan
-    smaux.smq{end+1}=smscan;
+    global smaux smscan smaux
+    tmp = smscan;
+
+    % --- INSERT: mirror loop(2).getchan -> loop(1).readchan ---
+    if isfield(tmp,'loops') && numel(tmp.loops) >= 2
+        % (uncomment the next line if you want to respect the checkbox)
+        % if isfield(smaux,'smgui') && isgraphics(smaux.smgui.bufread_cbh) && get(smaux.smgui.bufread_cbh,'Value')
+            tmp.loops(1).readchan = tmp.loops(2).getchan;
+        % end
+    end
+    % --- /INSERT ---
+
+    tmp = sanitizeReadchan(tmp);          % normalize cell format
+    smaux.smq{end+1} = tmp;
     sm
     sm_Callback('UpdateToGUI');
 end
+
 
 % updates the GUI components
 function Update(varargin)

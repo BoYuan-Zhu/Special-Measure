@@ -21,7 +21,7 @@ smscan.comments = ['Graphene @ RT Gr Vg test on Gr gate pin 18, Si gate gnd.' ne
 smscan.name = 'Graphene';
 
 % === Adjust these paths to your environment ===
-smaux.datadir     = 'C:\Users\WangLabAdmin\Desktop\Users\boyuan\SpecialMeasure\buffer-test\test';
+smaux.datadir     = 'C:\Users\wanglabadmin\Desktop\Special-Measure-main\test';
 smaux.pptsavefile = smaux.datadir;    % folder or a .ppt/.pptx file path
 smaux.pptMode     = 'ppt';            % 'ppt' or 'pptx'
 
@@ -101,7 +101,7 @@ end
 % Set channel of measurement: yoko, dc205 or keithley
 innerLoopChannel = 'V';
 ramptimeInnerLoop = 0; 
-npointsInnerLoop = 11;
+npointsInnerLoop = 5;
 minInnerLoop = 4;
 maxInnerLoop = -4;
 %% 
@@ -114,8 +114,8 @@ maxInnerLoop = -4;
 myChannel = {  'I-buf' 'Iac1-buf'  'Iac1-phase-buf'};
 
 outerLoopChannel = 'dummy';
-npointsOuterLoop = 1;
-minOuterLoop = 1;
+npointsOuterLoop = 11;
+minOuterLoop = 0;
 maxOuterLoop = 1;
 
 
@@ -132,7 +132,7 @@ smscan.disp = struct([]);
 for k = 1:numel(myChannel)
     smscan.disp(k).loop    = 2;   % data are acquired in loop 2
     smscan.disp(k).channel = k;   % channel index within getchan of loop 2
-    smscan.disp(k).dim     = 1;   % 1D trace
+    smscan.disp(k).dim     = 2;   % 1D trace
 end
 
 smscan.loops = struct;

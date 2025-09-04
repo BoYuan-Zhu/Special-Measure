@@ -13,12 +13,12 @@ function [val, rate] = smcK2400_Ramp(ic, val, rate)
 %Error Fixed: LeoZ 8-8-2012
 
     global smdata;
-    global k2400_ramp;
+    
     switch ic(2) % Channels 
         case 1 % Voltage
             switch ic(3) % Operation: 0 for read, 1 for write
                 case 0 % read
-                    if k2400_ramp == 1% Stop continuous updating
+                    if smdata.ramp == 1% Stop continuous updating
                             txt = query(smdata.inst(ic(1)).data.inst, ':SOUR:VOLT:LEV:IMM:AMPL?');  % or ':VOLT?'
                             val = str2double(strtrim(txt));                 % -> double scalar
                             % Resume continuous updating
@@ -29,7 +29,7 @@ function [val, rate] = smcK2400_Ramp(ic, val, rate)
                     end
                 case 1 % write
                     fprintf(smdata.inst(ic(1)).data.inst,':OUTPut ON');
-                    if k2400_ramp == 1
+                    if smdata.ramp == 1
                         cmd = sprintf(':source:volt %g', val);
                         fprintf(smdata.inst(ic(1)).data.inst, cmd);
                         pause(0.05);
@@ -100,6 +100,7 @@ function [val, rate] = smcK2400_Ramp(ic, val, rate)
                     fprintf(inst, ':TRIG:COUN 1');            % Acquire 1 point per INIT
                     fprintf(inst,':sense:current:range 1e-6');% <-- set current compliance to 1 uA
                     smdata.inst(ic(1)).data.RampPts = 0;
+                  
                     val = [];
                 case 2  % single-shot: push one reading into buffer
                     fprintf(inst, ':INIT');    % Start; buffer gets one reading due to FEED/NEXT
@@ -113,11 +114,13 @@ function [val, rate] = smcK2400_Ramp(ic, val, rate)
                     raw = query(inst, ':TRAC:DATA?');
                     vals = sscanf(raw, '%g,');   % column vector
                     val  = vals.';               % row vector
-                    fprintf(inst,':ABORt;:TRIGger:CLEar;:TRACe:FEED:CONTrol NEVer');
-                    fprintf(inst,':FORM:ELEM VOLT,CURR,RES,TIME,STAT');
-                    fprintf(inst,':arm:count infinite;:initiate');
+                    if smdata.ramp == 0
+                        fprintf(inst,':ABORt;:TRIGger:CLEar;:TRACe:FEED:CONTrol NEVer');
+                        fprintf(inst,':FORM:ELEM VOLT,CURR,RES,TIME,STAT');
+                        fprintf(inst,':arm:count infinite;:initiate');
+                    end
                     smdata.inst(ic(1)).data.RampPts = 0;
-                    k2400_ramp = 0;
+                   
                 case 4  % planned points from datadim
                     smdata.inst(ic(1)).data.RampPts = smdata.inst(ic(1)).datadim(ic(2));
                     val = smdata.inst(ic(1)).data.RampPts;
@@ -131,8 +134,8 @@ function [val, rate] = smcK2400_Ramp(ic, val, rate)
                     smdata.inst(ic(1)).datadim(ic(2)) = val;
                     smdata.inst(ic(1)).data.RampPts   = val;
                     smdata.inst(ic(1)).data.RampTime = (val-1)./rate;
+                   
                     
-                    k2400_ramp = 1;
                 otherwise
                     error('K2400 driver: Operation not supported for Ig-buf.');
             end

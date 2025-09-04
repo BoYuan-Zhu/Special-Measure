@@ -15,15 +15,15 @@ smaux.pptMode     = 'ppt';            % 'ppt' or 'pptx'
 GPIB_BOARD        = 'ni';
 BOARD_NUM         = 0;
 K2450_GPIB        = 18;  % K2450 GPIB address
-K199_GPIB         = 27;
-K199_GPIB_OHMS    = 26;   % K199 GPIB address
+K199_GPIB         = 26;  
+K199_GPIB_OHMS    = 27 ;   % K199 GPIB address
 
 %% -------------------- Dummy instrument (for outer loop) --------------------
 smloadinst('test');
 smaddchannel('test','CH1','dummy');
 smaddchannel('test','CH2','count');
 
-%% -------------------- Model199 (OHMS) --------------------
+% -------------------- Model199 (OHMS) --------------------
 try
     ind_199 = smloadinst('K199', [], GPIB_BOARD, BOARD_NUM, K199_GPIB_OHMS);
     smopen(ind_199);
@@ -62,22 +62,22 @@ catch err
 end
 
 %% -------------------- K2450 --------------------
-try
-    ind_k = smloadinst('k2450_2', [], 'ni', 0, K2450_GPIB);
-    smopen(ind_k);
-    smdata.inst(ind_k).name    = 'K2450';
-    smdata.inst(ind_k).cntrlfn = @smcK2450_Ramp;
-
-    % Source V (Vg) and Read I (Ig) and buffered Ig
-    smaddchannel('K2450','Vg',     'Vg',     [-10, 10, Inf, 1]);      % source V
-catch err
-    fprintf(['*ERROR* problem with connecting to the Source | ' err.identifier ': ' err.message '\n']);
-end
+% try
+%     ind_k = smloadinst('K2450', [], 'ni', 0, K2450_GPIB);
+%     smopen(ind_k);
+%     smdata.inst(ind_k).name    = 'K2450';
+%     smdata.inst(ind_k).cntrlfn = @smcK2450_Ramp;
+% 
+%     % Source V (Vg) and Read I (Ig) and buffered Ig
+%     smaddchannel('K2450','V',     'Vg',     [-10, 10, Inf, 1]);      % source V
+% catch err
+%     fprintf(['*ERROR* problem with connecting to the Source | ' err.identifier ': ' err.message '\n']);
+% end
 
 %% ==================== Scan definition ====================
-innerLoopChannel = 'Vg';      % the dummy channel we step through
-InnerLoopwaittime = 0.1;
-npointsInnerLoop  = 51;
+innerLoopChannel = 'count';      % the dummy channel we step through
+InnerLoopwaittime = 0.12;
+npointsInnerLoop  = 11;
 minInnerLoop      = 0;
 maxInnerLoop      = 1;
 

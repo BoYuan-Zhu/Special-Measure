@@ -23,14 +23,26 @@ switch ic(2) % Channels
             case 0 %read
                 % Stop continuous updating, measure the current and read the voltage readback
                 %fprintf(smdata.inst(ic(1)).data.inst,setupcmd);
-                val = query(smdata.inst(ic(1)).data.inst,':SOURce:VOLTage:AMPLitude?','%s\n','%g');
+                if smdata.ramp == 1
+                    val = query(smdata.inst(ic(1)).data.inst,':SOURce:VOLTage:AMPLitude?','%s\n','%g');
+                else
+                    val = query(smdata.inst(ic(1)).data.inst,':SOURce:VOLTage:AMPLitude?','%s\n','%g');
+                    fprintf(smdata.inst(ic(1)).data.inst, continuesupdatingcmd);
+                end
                 % continuous updating.
                 %fprintf(smdata.inst(ic(1)).data.inst, continuesupdatingcmd);
             case 1 %write operation
                 %fprintf(smdata.inst(ic(1)).data.inst,setupcmd);
-                fprintf(smdata.inst(ic(1)).data.inst,':OUTPut:STATe ON ');
-                cmd = sprintf(':SOURce:VOLTage %g', val);
-                fprintf(smdata.inst(ic(1)).data.inst, cmd);
+                if smdata.ramp == 1
+                    fprintf(smdata.inst(ic(1)).data.inst,':OUTPut:STATe ON ');
+                    cmd = sprintf(':SOURce:VOLTage %g', val);
+                    fprintf(smdata.inst(ic(1)).data.inst, cmd);
+                else
+                    fprintf(smdata.inst(ic(1)).data.inst,':OUTPut:STATe ON ');
+                    cmd = sprintf(':SOURce:VOLTage %g', val);
+                    fprintf(smdata.inst(ic(1)).data.inst, cmd);
+                    fprintf(smdata.inst(ic(1)).data.inst, continuesupdatingcmd);
+                end
                 % continuous updating.
                 % query(smdata.inst(ic(1)).data.inst,':SENSe:COUNt 1;:MEASure?');
                 %fprintf(smdata.inst(ic(1)).data.inst, continuesupdatingcmd);
@@ -43,7 +55,12 @@ switch ic(2) % Channels
                 % Stop continuous updating, measure the current and read the voltage readback
                 %fprintf(smdata.inst(ic(1)).data.inst,setupcmd);
                 KO = query(smdata.inst(ic(1)).data.inst, 'count 2;:READ? "defbuffer1", SOUR, READ', '%s\n', '%g,%g');
-                val = KO(2);
+                % if length(KO) >= 2
+                     val = KO(2);
+                % else
+                %     warning('K2450: Insufficient data received, using default value');
+                %     val = 0; % 或其他合适的默认值
+                % end
                 % continuous updating.
                 fprintf(smdata.inst(ic(1)).data.inst, continuesupdatingcmd);
                 pause(0.01);
