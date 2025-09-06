@@ -1,0 +1,2 @@
+KS34465A,KS34461A needs a software trigger buffer mode
+SR860 is not able to use software trigger, try external trigger

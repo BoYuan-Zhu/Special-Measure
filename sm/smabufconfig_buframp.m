@@ -1,5 +1,5 @@
 function scan = smabufconfig_buframp(scan, ctrl, getrng, setrng, loop)
-% scan = smabufconfig2(scan, cntrl, getrng, setrng, loop)
+
 % Configure buffered acquisition for fastest loop using drivers. 
 % Supersedes smarampconfig/smabufconfig if driver provides this
 % functionality.
