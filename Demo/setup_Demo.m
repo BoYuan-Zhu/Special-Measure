@@ -1,0 +1,455 @@
+%================= Vector Setup Instrument Initialization =================
+% Clear out Matlab
+clear all;
+close all;
+instrreset;
+
+%--------------------- User data directory ---------------------
+filedirectory = '';
+
+%%%%=================== Unified configuration ===================
+CFG = struct();
+
+% ------------------- Feature toggles (legacy examples) ---------
+% CFG.PPMS.enable     = true;
+% CFG.IPSM_LV.enable  = true;
+% CFG.Cell12_MAG_Use.enable  = true;
+
+% ------------------- Bus / transport configs -------------------
+% GPIB controller settings
+CFG.GPIB.board = 'ni';
+CFG.GPIB.index = 0;
+
+% ------------------- Instrument-centric configs ----------------
+% SR830 addresses
+CFG.SR830_1.gpib_addr   = 1;
+CFG.SR830_2.gpib_addr   = 2;
+% CFG.SR830_3.gpib_addr   = 3;
+% CFG.SR830_4.gpib_addr   = 4;
+
+% SR860 addresses
+CFG.SR860_1.gpib_addr   = 1;
+CFG.SR860_2.gpib_addr   = 2;
+% CFG.SR860_3.gpib_addr   = 3;
+% CFG.SR860_4.gpib_addr   = 4;
+
+% Function Generator
+% KS33511B
+CFG.KS33511B.gpib_addr   = 11;
+
+% Keithley SMU family
+CFG.K2400_1.gpib_addr = 21;
+CFG.K2400_1.mode      = 'Voltage';  % 'Voltage' or 'Current'
+
+% CFG.K2400_2.gpib_addr = 22; CFG.K2400_2.mode = 'Voltage';
+% CFG.K2400_3.gpib_addr = 23; CFG.K2400_3.mode = 'Voltage';
+
+CFG.K2450_1.gpib_addr = 18;
+CFG.K2450_1.mode      = 'Voltage';
+CFG.K2450_2.gpib_addr = 19;
+CFG.K2450_2.mode      = 'Voltage';
+
+% Keysight 2001/34465A etc.
+CFG.K2001.gpib_addr = 11;
+% CFG.KS34465A_1.usb = 'USB0::0x2A8D::0x0101::MY59007514::INSTR';
+% CFG.KS34465A_1.mode = 'Voltage';
+
+% TCP / Serial based instruments
+CFG.OITriton.tcp       = 'mrl-dvh-elsa.mrl.illinois.edu:33576'; % 'host:port'
+CFG.IPS_Mercury.serial = 'COM3';
+
+% Optional examples (enable by filling values):
+% CFG.MagnetK2400.gpib_addr = 24;     % Current source as small-B magnet
+% CFG.K2700.gpib_addr       = 16;
+% CFG.MagnetSource.gpib_addr= 25;     % B2902A as magnet source
+% CFG.DAC.serial            = 'COM2';
+% CFG.Magnet.serial         = 'COM5';
+% CFG.AVS47B.gpib_addr      = 20;
+% CFG.TCS.serial            = 'COM7';
+
+
+
+
+%%%%=================== Load empty smdata shell ==================
+global smdata;
+global smscan;
+load smdata_empty;
+
+%% Add instruments to rack (dummy + basic)
+smloadinst('test');
+smaddchannel('test', 'CH1', 'dummy');
+smaddchannel('test', 'CH2', 'count');
+
+%====================== PPMS (Dynacool) ========================
+if isfield(CFG,'PPMS') && isfield(CFG.PPMS,'enable') && ~isempty(CFG.PPMS.enable) && CFG.PPMS.enable
+    try
+        PPMS_Initial
+        ind = smloadinst('PPMS', [], 'None');
+        smdata.inst(ind).name = 'PPMS';
+        smaddchannel('PPMS','Temp','T',[1.6,300,Inf,1]); 
+        smaddchannel('PPMS','Field','B',[-9,9,Inf,1E4]); 
+    catch err
+        fprintf(['*ERROR* problem with connecting to Quantum Design Dynacool\n' err.identifier ': ' err.message '\n'])
+    end
+end
+
+%================== OI Triton (TCP client) =====================
+if isfield(CFG,'OITriton') && isfield(CFG.OITriton,'tcp') && ~isempty(CFG.OITriton.tcp)
+    try
+        ind = smloadinst('OITriton', [], 'tcpclient', CFG.OITriton.tcp);
+        smdata.inst(ind).name = 'ELSA';
+        smopen(ind);
+
+        smaddchannel('ELSA','Magnet','Magnet',[0,500,Inf,1]);
+        smaddchannel('ELSA','RampRate','Tramp',[0,10,Inf,1]); 
+        smaddchannel('ELSA','SetPnt','Tset',[0,500,Inf,1]); 
+        smaddchannel('ELSA','T','T',[0,500,Inf,1]); 
+        smaddchannel('ELSA','Range','HRange',[0,10000,Inf,1]);
+        smaddchannel('ELSA','MStilHTR','HStill',[0,100000,Inf,1]);
+        smaddchannel('ELSA','Turbo1','Turbo1',[0,1,Inf,1]);
+    catch err
+        fprintf(['*ERROR* problem with connecting to OITriton\n' err.identifier ': ' err.message '\n'])
+    end
+end
+
+%================== IPS Mercury (Serial) =======================
+if isfield(CFG,'IPS_Mercury') && isfield(CFG.IPS_Mercury,'serial') && ~isempty(CFG.IPS_Mercury.serial)
+    try
+        ind = smloadinst('IPSM', [], 'serial', CFG.IPS_Mercury.serial);
+        smopen(ind);
+        smdata.inst(ind).name = 'IPSM';
+        smaddchannel('IPSM','B','B',[-5,5,Inf,1]); 
+        smaddchannel('IPSM','Persistent','Persistent',[0,1,Inf,1]);
+        smaddchannel('IPSM','RampRate','BRate',[0,0.15,Inf,1]);
+    catch err
+        fprintf(['*ERROR* problem with connecting to IPS Mercury\n' err.identifier ': ' err.message '\n'])
+    end
+end
+
+%========== iPS Magnet LabVIEW Control (toggle via .enable) ==========
+% Use unified enable flags for non-GPIB/TCP instruments:
+%   - Requires CFG.enable.IPSM_LV to be truthy
+%   - And requires CFG.enable.PPMS to be truthy
+if isfield(CFG,'IPSM_LV') && isfield(CFG.enable,'enable') && ~isempty(CFG.IPSM_LV.enable) && CFG.IPSM_LV.enable
+    try
+        global viSETB;
+        global viGETB;
+        mag = actxserver('LabVIEW.Application');
+        
+
+        baseDir = strtrim(userpath); % remove trailing semicolon if exists
+        viSETBpath = fullfile(baseDir, 'sm\channels\vi\Triton_Elsa_Signaling.vi');
+        viSETB = invoke(mag, 'GetVIReference', viSETBpath);
+        % Add SetB reference
+        viSETBpath = fullfile(baseDir, 'sm\channels\vi\OI_IPSM_Signaling.vi');
+        viSETB=invoke(mag,'GetVIReference',viSETBpath);
+        !sm\channels\vi\OI_IPSM_Signaling.vi; 
+        % Add ReadB reference
+        viSETBpath = fullfile(baseDir, 'sm\channels\vi\OI_IPSM_Control_Remote.vi');
+        viGETB = invoke(mag,'GetVIReference',viGETBpath);
+        !sm\channels\vi\OI_IPSM_Signaling.vi;
+
+        ind = smloadinst('IPSM_LV', [], 'None');
+        smdata.inst(ind).name = 'IPSM_LV';
+        smaddchannel('IPSM_LV','Field','B',[-5,5,Inf,1]); 
+        smaddchannel('IPSM_LV','Brate','Brate',[0,0.15,Inf,1]);
+    catch err
+        fprintf(['*ERROR* problem with connecting to IPSM Magnet (LV)\n' err.identifier ': ' err.message '\n'])
+    end
+end
+
+%% Add Cell12 Magnet Control (LabVIEW)
+if isfield(CFG,'Cell12_MAG_Use') && isfield(CFG.Cell12_MAG_Use,'enable') ...
+        && ~isempty(CFG.Cell12_MAG_Use.enable) && CFG.enable.Cell12_MAG_Use ...
+    try
+        global viSETB;
+        global viGETB;
+        mag = actxserver('LabVIEW.Application');
+
+       % Add SetB reference using relative path based on userpath
+        baseDir = strtrim(userpath); % remove trailing semicolon if exists
+        viSETBpath = fullfile(baseDir, 'sm\channels\vi\Cell12_MAG_Signaling.vi');
+        viSETB = invoke(mag, 'GetVIReference', viSETBpath);
+        
+        % Open VI file via system command
+        !sm\channels\vi\Cell12_MAG_Signaling.vi
+        
+        % Add ReadB reference using relative path based on userpath
+        viGETBpath = fullfile(baseDir, 'sm\channels\vi\Cell12_PS_Control_Remote.vi');
+        viGETB = invoke(mag, 'GetVIReference', viGETBpath);
+        
+        % Open VI file via system command (same as above)
+        !sm\channels\vi\Cell16_MAG_Signaling.vi
+        
+        ind = smloadinst('Cell12_MAG', [], 'None');
+        smdata.inst(ind).name = 'Cell12_MAG';
+        
+        % Channels
+        smaddchannel('Cell12_MAG','Field','B',[-35,35,Inf,1]);
+        smaddchannel('Cell12_MAG','Brate','Brate',[0,7,Inf,1]);
+        smaddchannel('Cell12_MAG','T','T',[0,20,Inf,1]);
+        smaddchannel('Cell12_MAG','Trate','Trate',[0,1,Inf,1]);
+ 
+    catch err
+        fprintf(['*ERROR* problem with connecting to Cell12 Magnet\n' err.identifier ': ' err.message '\n'])
+    end
+end
+
+%====================== SR830: LockInHigh ======================
+if isfield(CFG,'SR830_1') && isfield(CFG.SR830_1,'gpib_addr') && ~isempty(CFG.SR830_1.gpib_addr)
+    try
+        ind = smloadinst('SR830_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.SR830_1.gpib_addr);
+        smopen(ind);
+
+        smdata.inst(ind).name   = 'SR830_1';
+        smdata.inst(ind).cntrlfn = @smcSR830_Ramp;
+
+        % Live channels
+        smaddchannel('SR830_1','X', 'Isd_1',   [-Inf, Inf, Inf, 1e6]);
+        smaddchannel('SR830_1','Y', 'Isd_Y_1', [-Inf, Inf, Inf, 1e6]);
+
+        % Buffered channels
+        smaddchannel('SR830_1','DATA1','Iac1-buf_1');        % X trace
+        smaddchannel('SR830_1','DATA2','Iac1-phase-buf_1');  % Phase trace
+    catch err
+        fprintf(['*ERROR* SR830_1: ' err.identifier ': ' err.message '\n']);
+    end
+end
+
+
+
+%====================== Keithley 2400 ==========================
+if isfield(CFG,'K2400') && isfield(CFG.K2400,'gpib_addr') && ~isempty(CFG.K2400.gpib_addr)
+    try
+        ind = smloadinst('K2400_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.K2400.gpib_addr);
+        smdata.inst(ind).cntrlfn = @smcK2400_Ramp;
+
+        set(smdata.inst(ind).data.inst,'inputbuffersize',2^18);
+        set(smdata.inst(ind).data.inst,'outputbuffersize',2^10);
+        set(smdata.inst(ind).data.inst,'eosmode','read&write');
+        smopen(ind);
+
+        smdata.inst(ind).name = 'Source1';
+
+        smaddchannel('K2400','V',     'V',     [-10, 10, Inf, 1]);      % source V
+        smaddchannel('K2400','I',     'I',     [-Inf, Inf, Inf, 1e6]);  % read I
+        smaddchannel('K2400','I-buf', 'I-buf');                         % buffered I
+
+        fprintf(smdata.inst(ind).data.inst,'*rst');
+
+        if isfield(CFG.K2400,'mode') && strcmp(CFG.K2400.mode,'Voltage')
+            fprintf(smdata.inst(ind).data.inst,':source:func:mode volt');
+            fprintf(smdata.inst(ind).data.inst,':sense:current:range 1e-6');
+            fprintf(smdata.inst(ind).data.inst,':sense:current:protection 1e-6');
+            fprintf(smdata.inst(ind).data.inst,':source:voltage:delay 0.0');
+            fprintf(smdata.inst(ind).data.inst,':source:voltage:range:auto 1');
+        elseif isfield(CFG.K2400,'mode') && strcmp(CFG.K2400.mode,'Current')
+            fprintf(smdata.inst(ind).data.inst,':source:func:mode curr');
+            fprintf(smdata.inst(ind).data.inst,':sense:voltage:protection 1');
+            fprintf(smdata.inst(ind).data.inst,':sense:voltage:range 10');
+            fprintf(smdata.inst(ind).data.inst,':source:current:delay 0.0');
+            fprintf(smdata.inst(ind).data.inst,':source:current:range:auto 1');
+        end
+        fprintf(smdata.inst(ind).data.inst,':output on');
+    catch err
+        fprintf(['*ERROR* problem with connecting to the Source (K2400)\n' err.identifier ': ' err.message '\n'])
+    end
+end
+
+%====================== Keithley 2450 ==========================
+if isfield(CFG,'K2450') && isfield(CFG.K2450,'gpib_addr') && ~isempty(CFG.K2450.gpib_addr)
+    try
+        ind = smloadinst('k2450_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.K2450.gpib_addr);
+        smopen(ind);
+
+        smdata.inst(ind).name    = 'K2450';
+        smdata.inst(ind).cntrlfn = @smcK2450_Ramp;
+
+        smaddchannel('K2450','Vg',     'Vg',     [-10, 10, Inf, 1]);
+        smaddchannel('K2450','Ig',     'Ig',     [-Inf, Inf, Inf, 1e6]);
+        smaddchannel('K2450','Ig-buf', 'Ig-buf');
+
+        fprintf(smdata.inst(ind).data.inst,'*rst');
+        fprintf(smdata.inst(ind).data.inst,'*cls');
+    catch err
+        fprintf(['*ERROR* problem with connecting to the Source (K2450)\n' err.identifier ': ' err.message '\n']);
+    end
+end
+
+%====================== Keithley 2450_2 ========================
+if isfield(CFG,'K2450_2') && isfield(CFG.K2450_2,'gpib_addr') && ~isempty(CFG.K2450_2.gpib_addr)
+    try
+        ind = smloadinst('K2450_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.K2450_2.gpib_addr);
+        smopen(ind);
+
+        smdata.inst(ind).name    = 'K2450_2';
+        smdata.inst(ind).cntrlfn = @smcK2450_Ramp;
+
+        smaddchannel('K2450_2','Vg',     'Vbg',     [-10, 10, Inf, 1]);
+        smaddchannel('K2450_2','Ig',     'Ibg',     [-Inf, Inf, Inf, 1e6]);
+        smaddchannel('K2450_2','Ig-buf', 'Ibg-buf');
+
+        fprintf(smdata.inst(ind).data.inst,'*rst');
+        fprintf(smdata.inst(ind).data.inst,'*cls');
+    catch err
+        fprintf(['*ERROR* problem with connecting to the Source (K2450_2)\n' err.identifier ': ' err.message '\n']);
+    end
+end
+
+%=================== CryoLtd Magnet (Serial) ===================
+if isfield(CFG,'Magnet') && isfield(CFG.Magnet,'serial') && ~isempty(CFG.Magnet.serial)
+    try
+        ind = smloadinst('CryoLtd', [], 'serial', CFG.Magnet.serial);
+        smopen(ind);
+        smdata.inst(ind).name = 'Magnet';
+        smaddchannel('Magnet','I','B',[-9,9,Inf,10.167]);    % auto ramp
+        smaddchannel('Magnet','M','Bmax',[0,1,Inf,10.167]);  % max field
+    catch err
+        fprintf(['*ERROR* problem with connecting to the Magnet\n' err.identifier ': ' err.message '\n'])
+    end
+end
+
+%============ Current source (K2400) as small B magnet =========
+if isfield(CFG,'MagnetK2400') && isfield(CFG.MagnetK2400,'gpib_addr') && ~isempty(CFG.MagnetK2400.gpib_addr)
+    try
+        ind = smloadinst('K2400', [], CFG.GPIB.board, CFG.GPIB.index, CFG.MagnetK2400.gpib_addr);
+        set(smdata.inst(ind).data.inst,'inputbuffersize',2^18);
+        set(smdata.inst(ind).data.inst,'outputbuffersize',2^10);
+        set(smdata.inst(ind).data.inst,'eosmode','read&write');
+        smopen(ind);
+
+        smdata.inst(ind).name = 'MagnetSource';
+
+        fprintf(smdata.inst(ind).data.inst,'*RST');
+        fprintf(smdata.inst(ind).data.inst,':sour:func curr');
+        fprintf(smdata.inst(ind).data.inst,':sens:func "volt"');
+        fprintf(smdata.inst(ind).data.inst,':outp on');
+
+        smaddchannel('MagnetSource','V','VB',[-Inf Inf Inf 1]); % read-only
+        smaddchannel('MagnetSource','I','Bi',[-0.1032,0.1032,0.0005,9.6899]);
+        smget('VB')
+    catch err
+        fprintf(['*ERROR* problem with connecting to the MagnetSource (K2400)\n' err.identifier ': ' err.message '\n'])
+    end
+end
+
+%=========== B2902A as magnet current source (GPIB) ============
+if isfield(CFG,'MagnetSource') && isfield(CFG.MagnetSource,'gpib_addr') && ~isempty(CFG.MagnetSource.gpib_addr)
+    try
+        ind = smloadinst('B2902A', [], CFG.GPIB.board, CFG.GPIB.index, CFG.MagnetSource.gpib_addr);
+        smopen(ind);
+        smdata.inst(ind).name    = 'MagnetSource';
+        smdata.inst(ind).cntrlfn = @smcB2902A_Alt;
+
+        smaddchannel('MagnetSource','V1','VB',[-Inf Inf Inf 1]); % read-only
+        smaddchannel('MagnetSource','I1','Bi',[-0.4,0.4,0.002,1/0.1336]);
+
+        fprintf(smdata.inst(ind).data.inst,'*rst');
+        fprintf(smdata.inst(ind).data.inst,':source1:function:mode current');
+        fprintf(smdata.inst(ind).data.inst,':sense1:voltage:protection 2');
+        fprintf(smdata.inst(ind).data.inst,':sense1:voltage:range:auto 2');
+        fprintf(smdata.inst(ind).data.inst,':output1 on');
+        smget('VB')
+    catch err
+        fprintf(['*ERROR* problem with connecting to the MagnetSource (B2902A)\n' err.identifier ': ' err.message '\n'])
+    end
+end
+
+%=================== Triple Current Source (TCS) ===============
+if isfield(CFG,'TCS') && isfield(CFG.TCS,'serial') && ~isempty(CFG.TCS.serial)
+    try
+        ind = smloadinst('TCS', [], 'serial', CFG.TCS.serial);
+        smdata.inst(ind).name = 'TCS';
+        smopen(ind);
+
+        smaddchannel('TCS','SRC1','I_sorp',   [-Inf, Inf, Inf, 1]);
+        smaddchannel('TCS','SRC1','I_switch', [-Inf, Inf, Inf, 1]);
+        smaddchannel('TCS','SRC2','I_still',  [-Inf, Inf, Inf, 1]);
+        smaddchannel('TCS','SRC3','I_mc',     [-Inf, Inf, Inf, 1]);
+    catch err
+        fprintf(['*ERROR* problem with connecting to TCS\n' err.identifier ': ' err.message '\n'])
+    end
+end
+
+%% Custom Channels
+% smaddchannel('LockIn_Upper', 'X', 'G2', [-Inf, Inf, Inf, 1e3]);
+% smaddchannel('LockIn_Upper', 'X', 'I2', [-Inf, Inf, Inf, 1e7]);
+% smaddchannel('LockIn_Lower', 'X', 'Rtemp', [-Inf, Inf, Inf, 1e-8]);
+% smaddchannel('LockIn_Upper', 'X', 'Vxx', [-Inf, Inf, Inf, 100]);
+% smaddchannel('LockIn_Middle', 'X', 'Isd', [-Inf, Inf, Inf, 1e6]);
+% smaddchannel('LockIn_Middle', 'X', 'Rt', [-Inf, Inf, Inf, 1e-7]);
+% smaddchannel('LockIn_High', 'X', 'Rt', [-Inf, Inf, Inf, 1e-9]);
+% smaddchannel('LockIn_Lower', 'X', 'V4', [-Inf, Inf, Inf, 1e3]);
+% smaddchannel('LockIn_High', 'X', 'Rtemp', [-Inf, Inf, Inf, 1e-9]);
+
+%% Add Function channels
+
+ind = smloadinst('Function');
+% smdata.inst(ind).name = 'Fun1';
+
+smdata.inst(ind).data.dependences={'Vbg','Vtg'};
+smdata.inst(ind).data.formula={...
+    @(n,E) (n-E)/1.06/2 + 0.08,...
+    @(n,E) (n+E)/0.387/2 + 1.4...
+    };
+smaddchannel('Function', 'VAR1', 'n'); % Density (10^12 cm^-2)
+smaddchannel('Function', 'VAR2', 'E'); % Electric field (arb.unit)
+
+%% Add Function channels
+
+ind = smloadinst('Function');
+smdata.inst(ind).name = 'Fun2';
+
+smdata.inst(ind).data.dependences={'Vdc'};
+smdata.inst(ind).data.formula={@(x) 10^x};
+smaddchannel('Fun2', 'VAR1', 'log10Vdc'); % 
+
+%% Add Function channels
+
+ind = smloadinst('Function');
+smdata.inst(ind).name = 'Fun3';
+
+smdata.inst(ind).data.dependences={'Freq'};
+smdata.inst(ind).data.formula={@(x) 10^x};
+smaddchannel('Fun3', 'VAR1', 'log10Freq'); % 
+
+%% 
+smprintinst
+smprintchannels
+
+% smgui_small
+global smaux
+smaux.datadir = filedirectory;
+
+if ~isfield(smaux,'run')
+    smaux.run=100;
+end
+
+smaux.initialized=1;
+sm
+smgui_buf
+
+% set up save loop
+% smscan.saveloop = 2;
+
+% escape fns
+smscan.escapefn.fn = @(x) smset({'dummy','count'},[0,0]);
+smscan.escapefn.args = {};
+
+cd(filedirectory)
+
+
+% index_instr=[4:7 11];
+% for ii=index_instr 
+%     smopen(ii);
+% end
+% smset('Ic3',6e-9);
+% smset('Ic4',6e-9);
+% for ii=index_instr 
+%     smclose(ii);
+% end
+% for ii=index_instr
+%     smopen(ii);
+% end
+% fprintf(smdata.inst(6).data.inst,':source:voltage:range:auto 1');
+% fprintf(smdata.inst(7).data.inst,':source:voltage:range:auto 1');
