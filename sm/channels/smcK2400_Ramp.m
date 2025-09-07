@@ -32,11 +32,11 @@ function [val, rate] = smcK2400_Ramp(ic, val, rate)
                     if smdata.ramp == 1
                         cmd = sprintf(':source:volt %g', val);
                         fprintf(smdata.inst(ic(1)).data.inst, cmd);
-                        pause(0.05);
+                        % pause(0.05);
                     else
                          cmd = sprintf(':abort;:source:volt %g;:initiate', val);
                          fprintf(smdata.inst(ic(1)).data.inst, cmd);
-                         pause(0.05);
+                         % pause(0.05);
                     end
                 otherwise
                     error('K2400 driver: Operation not supported');

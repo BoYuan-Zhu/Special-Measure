@@ -5,7 +5,7 @@ close all;
 instrreset;
 
 %--------------------- User data directory ---------------------
-filedirectory = 'C:\Users\WangLabAdmin\Desktop\test';
+filedirectory = '';
 
 %%%%=================== Unified configuration ===================
 CFG = struct();
@@ -207,8 +207,7 @@ if isfield(CFG,'SR830_1') && isfield(CFG.SR830_1,'gpib_addr') && ~isempty(CFG.SR
         % Live channels
         smaddchannel('SR830_1','X', 'Isd_1',   [-Inf, Inf, Inf, 1e6]);
         smaddchannel('SR830_1','Y', 'Isd_Y_1', [-Inf, Inf, Inf, 1e6]);
-        smaddchannel('SR830_1','OUT1',  'AUX_OUT1', [-10, 10, 0.001, 1]);    % V
-        
+
         % Buffered channels
         smaddchannel('SR830_1','DATA1','Iac1-buf_1');        % X trace
         smaddchannel('SR830_1','DATA2','Iac1-phase-buf_1');  % Phase trace
@@ -253,7 +252,7 @@ if isfield(CFG,'SR830_3') && isfield(CFG.SR830_3,'gpib_addr') && ~isempty(CFG.SR
 
         % Buffered channels
         smaddchannel('SR830_3','DATA1','Iac1-buf_3');        % X trace
-        smaddchannel('SR830_3','DATA2','Iac1-phase-buf_3');  % Phase trace
+        smaddchannel('SR830_3','DATA3','Iac1-phase-buf_3');  % Phase trace
     catch err
         fprintf(['*ERROR* SR830_3: ' err.identifier ': ' err.message '\n']);
     end
@@ -274,7 +273,7 @@ if isfield(CFG,'SR830_4') && isfield(CFG.SR830_4,'gpib_addr') && ~isempty(CFG.SR
 
         % Buffered channels
         smaddchannel('SR830_3','DATA1','Iac1-buf_4');        % X trace
-        smaddchannel('SR830_3','DATA2','Iac1-phase-buf_4');  % Phase trace
+        smaddchannel('SR830_3','DATA3','Iac1-phase-buf_4');  % Phase trace
     catch err
         fprintf(['*ERROR* SR830_3: ' err.identifier ': ' err.message '\n']);
     end
@@ -284,15 +283,14 @@ end
 if isfield(CFG,'K2400_1') && isfield(CFG.K2400_1,'gpib_addr') && ~isempty(CFG.K2400_1.gpib_addr)
     try
         ind = smloadinst('K2400_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.K2400_1.gpib_addr);
-        smopen(ind);
-
-        smdata.inst(ind).name = 'K2400_1';
         smdata.inst(ind).cntrlfn = @smcK2400_Ramp;
 
         set(smdata.inst(ind).data.inst,'inputbuffersize',2^18);
         set(smdata.inst(ind).data.inst,'outputbuffersize',2^10);
         set(smdata.inst(ind).data.inst,'eosmode','read&write');
-        
+        smopen(ind);
+
+        smdata.inst(ind).name = 'Source1';
 
         smaddchannel('K2400_1','V',     'V1',     [-10, 10, Inf, 1]);      % source V
         smaddchannel('K2400_1','I',     'I1',     [-Inf, Inf, Inf, 1e6]);  % read I
@@ -324,16 +322,15 @@ end
 if isfield(CFG,'K2400_2') && isfield(CFG.K2400_2,'gpib_addr') && ~isempty(CFG.K2400_2.gpib_addr)
     try
         ind = smloadinst('K2400_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.K2400_2.gpib_addr);
-        smopen(ind);
-
-        smdata.inst(ind).name = 'K2400_2';
-
         smdata.inst(ind).cntrlfn = @smcK2400_Ramp;
 
         set(smdata.inst(ind).data.inst,'inputbuffersize',2^18);
         set(smdata.inst(ind).data.inst,'outputbuffersize',2^10);
         set(smdata.inst(ind).data.inst,'eosmode','read&write');
-        
+        smopen(ind);
+
+        smdata.inst(ind).name = 'Source2';
+
         smaddchannel('K2400_2','V',     'V2',     [-10, 10, Inf, 1]);      % source V
         smaddchannel('K2400_2','I',     'I2',     [-Inf, Inf, Inf, 1e6]);  % read I
         smaddchannel('K2400_2','I-buf', 'I2-buf');                         % buffered I
@@ -363,16 +360,15 @@ end
 if isfield(CFG,'K2400_3') && isfield(CFG.K2400_3,'gpib_addr') && ~isempty(CFG.K2400_3.gpib_addr)
     try
         ind = smloadinst('K2400_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.K2400_3.gpib_addr);
-        smopen(ind);
-
-        smdata.inst(ind).name = 'K2400_3';
-
         smdata.inst(ind).cntrlfn = @smcK2400_Ramp;
 
         set(smdata.inst(ind).data.inst,'inputbuffersize',2^18);
         set(smdata.inst(ind).data.inst,'outputbuffersize',2^10);
         set(smdata.inst(ind).data.inst,'eosmode','read&write');
-        
+        smopen(ind);
+
+        smdata.inst(ind).name = 'Source3';
+
         smaddchannel('K2400_3','V',     'V3',     [-10, 10, Inf, 1]);      % source V
         smaddchannel('K2400_3','I',     'I3',     [-Inf, Inf, Inf, 1e6]);  % read I
         smaddchannel('K2400_3','I-buf', 'I3-buf');                         % buffered I
