@@ -1,4 +1,4 @@
-function [val, rate] = smcK34465A_buf(ico, val, rate)
+function [val, rate] = smcKS34465A_Ramp(ico, val, rate)
 
 global smdata;
 

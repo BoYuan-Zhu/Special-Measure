@@ -1,8 +1,16 @@
-function varargout = smgui(varargin)
+function varargout = smgui_buf(varargin)
 % Runs special measure's GUI
 % to fix: -- deselect plots after changing setchannels
 %         -- selecting files/directories/run numbers
 %         -- add notifications + smaux compatibility
+
+% [09/06/2025] Updated by Boyuan: Added a tickbox for buffer mode. Once
+% ticked, all the record channel must be selected in loop 2 and should be
+% channels support buffer mode. If you want run non-buf mode, please untick
+% the box and make sure all the record channels selected is non-buffer
+% channel.
+
+
 
 % Copyright 2011 Hendrik Bluhm, Vivek Venkatachalam
 % This file is part of Special Measure.

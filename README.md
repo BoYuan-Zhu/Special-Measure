@@ -1,3 +1,4 @@
 # special-measure
+For those who wants to use the special measure, please checkout the Demo.m first.
 
-Current version the ramp is by setting the voltage of k2450 one by one.
+If there is any other instruments you want to add, please refer to the instrument library.

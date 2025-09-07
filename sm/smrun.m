@@ -57,7 +57,7 @@ function data = smrun(scan, filename)
 
 % Copyright 2011 Hendrik Bluhm, Vivek Venkatachalam
 % This file is part of Special Measure.
-% scan.loops
+
 %     Special Measure is free software: you can redistribute it and/or modify
 %     it under the terms of the GNU General Public License as published by
 %     the Free Software Foundation, either version 3 of the License, or
@@ -114,6 +114,9 @@ catch
     smdata.ramp = 0;  % fail-safe
 end
 % --- /RAMP flag ---
+% [09/06/2025] Updated by Boyuan: smdata.ramp is added to check whether the
+% current loop is in buffer mode. You might need different configuration
+% for the instrument in different modes, smdata.ramp is a good indicator.
 
  % handle setting up self-ramping trigger for inner loop if none is
  % provided

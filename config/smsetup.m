@@ -15,7 +15,7 @@ smaddchannel('test', 'CH2', 'count');
 if 0 % only useful if SR830 connected to computer
   % smsetup.m 内
     ind = smloadinst('SR830', [], 'ni', 0, 23);   % load SR830（from sminst_SR830.mat）
-    
+    smopen(ind); %open GPIB communication
 
 
     %smloadinst is not fully developed. Have a look at the code if this simple
