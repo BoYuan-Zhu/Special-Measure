@@ -313,7 +313,7 @@ function RunNum
         set(smaux.sm.runincrement_cbh,'Value',0);
         smaux.run=[];  
     else
-        val = str2double(s)
+        val = str2double(s);
         if ~isnan(val) && isinteger(uint16(val)) && uint16(val)>=0 && uint16(val)<=999
             smaux.run=uint16(val);
             set(smaux.sm.run_eth,'String',smaux.run);
@@ -516,5 +516,4 @@ function UpdateToGUI
         
 
 end
-
 

@@ -27,6 +27,8 @@ function val = smcK2450(ic, val, rate)
                     cmd = sprintf(':sour:volt %g;:trig:cont REST', val);
                     fprintf(smdata.inst(ic(1)).data.inst, cmd);
                     pause(0.05);
+                
+                  
                 otherwise
                     error('K2400 driver: Operation not supported');
             end
@@ -84,4 +86,3 @@ function val = smcK2450(ic, val, rate)
     end
 
 end
-

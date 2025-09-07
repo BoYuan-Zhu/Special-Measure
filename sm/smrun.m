@@ -57,7 +57,7 @@ function data = smrun(scan, filename)
 
 % Copyright 2011 Hendrik Bluhm, Vivek Venkatachalam
 % This file is part of Special Measure.
-% 
+
 %     Special Measure is free software: you can redistribute it and/or modify
 %     it under the terms of the GNU General Public License as published by
 %     the Free Software Foundation, either version 3 of the License, or
@@ -79,6 +79,44 @@ if ~isstruct(scan)
     filename=scan;
     scan=smscan;
 end
+
+% --- RAMP flag: decide before anything else ---
+smdata.ramp = 0;  % default
+try
+    cfg = [];
+    if exist('smscan','var') && isstruct(smscan) && isfield(smscan,'configfn') && ~isempty(smscan.configfn)
+        cfg = smscan.configfn;          % prefer smscan.configfn
+    elseif isfield(scan,'configfn') && ~isempty(scan.configfn)
+        cfg = scan.configfn;            % fall back to scan.configfn
+    end
+    if ~isempty(cfg)
+        found = false;
+        if iscell(cfg)
+            for ii = 1:numel(cfg)
+                f = cfg{ii}.fn;
+                if (isa(f,'function_handle') && isequal(f,@smabufconfig_buframp)) || ...
+                   (ischar(f) && strcmp(f,'smabufconfig_buframp'))
+                    found = true; break;
+                end
+            end
+        else
+            for ii = 1:numel(cfg)
+                f = cfg(ii).fn;
+                if (isa(f,'function_handle') && isequal(f,@smabufconfig_buframp)) || ...
+                   (ischar(f) && strcmp(f,'smabufconfig_buframp'))
+                    found = true; break;
+                end
+            end
+        end
+        if found, smdata.ramp = 1; end
+    end
+catch
+    smdata.ramp = 0;  % fail-safe
+end
+% --- /RAMP flag ---
+% [09/06/2025] Updated by Boyuan: smdata.ramp is added to check whether the
+% current loop is in buffer mode. You might need different configuration
+% for the instrument in different modes, smdata.ramp is a good indicator.
 
  % handle setting up self-ramping trigger for inner loop if none is
  % provided
@@ -209,9 +247,19 @@ for i = 1:nloops
     end
 
     % default for ramp?
-    
-    scandef(i).setchan = smchanlookup(scandef(i).setchan);
-    scandef(i).getchan = smchanlookup(scandef(i).getchan);
+       if ~isfield(scandef,'readchan')
+        [scandef.readchan] = deal([]);   % add empty readchan to each loop
+       end
+        
+        % --- inside the per-loop setup where you do lookups ---
+        scandef(i).setchan = smchanlookup(scandef(i).setchan);
+        scandef(i).getchan = smchanlookup(scandef(i).getchan);
+        if ~isempty(scandef(i).readchan)
+            scandef(i).readchan = smchanlookup(scandef(i).readchan);
+        else
+            scandef(i).readchan = [];
+        end
+
     nsetchan(i) = length(scandef(i).setchan);
 
     %procfn defaults
@@ -496,12 +544,17 @@ for i = 1:nloops
 end
 
 loops = 1:nloops; % indices of loops to be updated. 1 = fastest loop
+
+%%Main loop
 for i = 1:totpoints    
     % update a loop if all faster loops are at first val
-    if i > 1;
-        loops = 1:find(count > 1, 1);        
+    if i > 1 
+        loops = 1:find(count > 1, 1);   
+%     elseif i == 1
+%           
+%         loops = 1:nloops;              
     end       
-    
+     
     for j = loops
         x(j) = scandef(j).rng(count(j));
     end
@@ -574,7 +627,7 @@ for i = 1:totpoints
         % if the field 'waittime' was in scan.loops(j), then wait that
         % amount of time now
         if isfield(scandef,'waittime')
-            pause(scandef(j).waittime)
+            pause(scandef(j).waittime);
         end
 
         % trigger after waiting for first point.
@@ -584,14 +637,50 @@ for i = 1:totpoints
 
 
     end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
     % read loops if all subsequent loops are at max count, outer loops last
     loops = 1:find(count < npoints, 1);
     if isempty(loops)
         loops = 1:nloops;
     end
     for j = loops(~isdummy(loops))
+
+         % --- ramp flag: if this is the very last get across all loops ---
+        if j == nloops && i == totpoints
+            smdata.ramp = 0;
+        end
+
         % could save a function call/data copy here - not a lot of code               
         newdata = smget(scandef(j).getchan);
+    % --- in the acquisition section, right after smget(...) ---
+        if ~isempty(scandef(j).readchan)
+            smread(scandef(j).readchan);   % only if provided
+        end
+
+        
+
+
+
+
+
+
+
 
         if isfield(scandef, 'postfn')
             fncall(scandef(j).postfn, xt);
@@ -722,6 +811,7 @@ for i = 1:totpoints
         end
         
         set(figurenumber,'userdata',[]); % tag this figure as not being used by SM
+        smdata.ramp = 0;  
         return;
     end
     %% Pause operation with space bar    
@@ -764,6 +854,7 @@ end
 
 % saveas(gcf,filename,'fig');
 % saveas(gcf,filename,'pdf');  
+smdata.ramp = 0;   % ensure cleared on normal exit
 
 end
 
