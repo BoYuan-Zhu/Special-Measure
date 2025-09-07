@@ -8,67 +8,56 @@ instrreset;
 filedirectory = 'C:\Users\WangLabAdmin\Desktop\test';
 
 %%%%=================== Unified configuration ===================
-CFG = struct();
-
-% ------------------- Feature toggles (legacy examples) ---------
-% CFG.PPMS.enable     = true;
-% CFG.IPSM_LV.enable  = true;
-% CFG.Cell12_MAG_Use.enable  = true;
+Inst_CFG = struct();
 
 % ------------------- Bus / transport configs -------------------
-% GPIB controller settings
-CFG.GPIB.board = 'ni';
-CFG.GPIB.index = 0;
+% GPIB controller settings (default if you use .Gpib = <addr>)
+Inst_CFG.GPIB.board = 'ni';
+Inst_CFG.GPIB.index = 0;
 
 % ------------------- Instrument-centric configs ----------------
-% SR830 addresses
-CFG.SR830_1.gpib_addr   = 1;
-CFG.SR830_2.gpib_addr   = 2;
-CFG.SR830_3.gpib_addr   = 3;
-CFG.SR830_4.gpib_addr   = 4;
+% Use ONE transport per instrument: .Usb/.Visa/.Resource, or .Gpib (number or struct), or .Tcp(+.Port), or .Serial/.Com
 
-% SR860 addresses
-% CFG.SR860_1.gpib_addr   = 1;
-% CFG.SR860_2.gpib_addr   = 2;
-% CFG.SR860_3.gpib_addr   = 3;
-% CFG.SR860_4.gpib_addr   = 4;
+% Lock-in SR830 family (examples)
+Inst_CFG.SR830_1.Gpib = 1;        % e.g. 1   (or .Usb = 'USB0::...::INSTR')
+Inst_CFG.SR830_2.Gpib = [];       % fill to enable
+Inst_CFG.SR830_3.Gpib = [];
+Inst_CFG.SR830_4.Gpib = [];
 
-% Function Generator
-% KS33511B
-% CFG.KS33511B.gpib_addr   = 11;
+% SR860 family (optional; comment if unused)
+% Inst_CFG.SR860_1.Gpib = 1;
 
-% Keithley SMU family
-CFG.K2400_1.gpib_addr = 21;
-CFG.K2400_1.mode      = 'Voltage';  % 'Voltage' or 'Current'
+% Keithley 2400 SMUs
+Inst_CFG.K2400_1.Gpib = 21; Inst_CFG.K2400_1.mode = 'Voltage';  % 'Voltage' or 'Current'
+Inst_CFG.K2400_2.Gpib = 22; Inst_CFG.K2400_2.mode = 'Voltage';
+Inst_CFG.K2400_3.Gpib = 23; Inst_CFG.K2400_3.mode = 'Voltage';
 
-% CFG.K2400_2.gpib_addr = 22; CFG.K2400_2.mode = 'Voltage';
-% CFG.K2400_3.gpib_addr = 23; CFG.K2400_3.mode = 'Voltage';
+% Keithley 2450 SMUs (examples)
+% Inst_CFG.K2450.Usb   = 'USB0::0x05E6::0x2450::1234567::INSTR';
+% Inst_CFG.K2450_2.Tcp = '192.168.1.50:5025';
 
-CFG.K2400_2.gpib_addr = 22;
-CFG.K2400_2.mode      = 'Voltage';
-CFG.K2400_3.gpib_addr = 23;
-CFG.K2400_3.mode      = 'Voltage';
+% Keysight B2902A as magnet source (example)
+% Inst_CFG.MagnetSource.Gpib = 25;   % or .Tcp = 'host:5025' or .Usb = 'USB0::...'
 
-% Keysight 2001/34465A etc.
-% CFG.K2001.gpib_addr = 11;
-% CFG.KS34465A_1.usb = 'USB0::0x2A8D::0x0101::MY59007514::INSTR';
-% CFG.KS34465A_1.mode = 'Voltage';
+% CryoLtd Magnet controller (Serial)
+% Inst_CFG.Magnet.Serial = 'COM5';
 
-% TCP / Serial based instruments
-CFG.OITriton.tcp       = 'mrl-dvh-elsa.mrl.illinois.edu:33576'; % 'host:port'
-CFG.IPS_Mercury.serial = 'COM3';
+% Current source K2400 as magnet supply (example)
+% Inst_CFG.MagnetK2400.Gpib = 24;
 
-% Optional examples (enable by filling values):
-% CFG.MagnetK2400.gpib_addr = 24;     % Current source as small-B magnet
-% CFG.K2700.gpib_addr       = 16;
-% CFG.MagnetSource.gpib_addr= 25;     % B2902A as magnet source
-% CFG.DAC.serial            = 'COM2';
-% CFG.Magnet.serial         = 'COM5';
-% CFG.AVS47B.gpib_addr      = 20;
-% CFG.TCS.serial            = 'COM7';
+% OI Triton (TCP)
+Inst_CFG.OITriton.Tcp = 'mrl-dvh-elsa.mrl.illinois.edu:33576';  % 'host:port'
 
+% Oxford IPS Mercury (Serial)
+Inst_CFG.IPS_Mercury.Serial = 'COM3';
 
+% Triple Current Source (Serial example)
+% Inst_CFG.TCS.Serial = 'COM7';
 
+% Optional feature toggles
+% Inst_CFG.PPMS.enable            = true;
+% Inst_CFG.IPSM_LV.enable         = true;
+% Inst_CFG.Cell12_MAG_Use.enable  = true;
 
 %%%%=================== Load empty smdata shell ==================
 global smdata;
@@ -81,232 +70,206 @@ smaddchannel('test', 'CH1', 'dummy');
 smaddchannel('test', 'CH2', 'count');
 
 %====================== PPMS (Dynacool) ========================
-if isfield(CFG,'PPMS') && isfield(CFG.PPMS,'enable') && ~isempty(CFG.PPMS.enable) && CFG.PPMS.enable
+% (PPMS front-end remains 'None'; its driver handles transport internally)
+if isfield(Inst_CFG,'PPMS') && isfield(Inst_CFG.PPMS,'enable') && ~isempty(Inst_CFG.PPMS.enable) && Inst_CFG.PPMS.enable
     try
         PPMS_Initial
         ind = smloadinst('PPMS', [], 'None');
         smdata.inst(ind).name = 'PPMS';
-        smaddchannel('PPMS','Temp','T',[1.6,300,Inf,1]); 
-        smaddchannel('PPMS','Field','B',[-9,9,Inf,1E4]); 
+        smaddchannel('PPMS','Temp','T',[1.6,300,Inf,1]);
+        smaddchannel('PPMS','Field','B',[-9,9,Inf,1E4]);
     catch err
-        fprintf(['*ERROR* problem with connecting to Quantum Design Dynacool\n' err.identifier ': ' err.message '\n'])
+        fprintf(['*ERROR* PPMS: ' err.identifier ': ' err.message '\n']);
     end
 end
 
-%================== OI Triton (TCP client) =====================
-if isfield(CFG,'OITriton') && isfield(CFG.OITriton,'tcp') && ~isempty(CFG.OITriton.tcp)
+%================== OI Triton (TCP/USB/Serial/GPIB via exact smloadinst calls) =====================
+if isfield(Inst_CFG,'OITriton') && has_transport_fields(Inst_CFG.OITriton)
     try
-        ind = smloadinst('OITriton', [], 'tcpclient', CFG.OITriton.tcp);
+        [ind, how] = smloadinst_by_cfg('OITriton', Inst_CFG.OITriton, Inst_CFG.GPIB);
         smdata.inst(ind).name = 'ELSA';
         smopen(ind);
+        fprintf('[OITriton] Connected via %s\n', how);
 
         smaddchannel('ELSA','Magnet','Magnet',[0,500,Inf,1]);
-        smaddchannel('ELSA','RampRate','Tramp',[0,10,Inf,1]); 
-        smaddchannel('ELSA','SetPnt','Tset',[0,500,Inf,1]); 
-        smaddchannel('ELSA','T','T',[0,500,Inf,1]); 
+        smaddchannel('ELSA','RampRate','Tramp',[0,10,Inf,1]);
+        smaddchannel('ELSA','SetPnt','Tset',[0,500,Inf,1]);
+        smaddchannel('ELSA','T','T',[0,500,Inf,1]);
         smaddchannel('ELSA','Range','HRange',[0,10000,Inf,1]);
         smaddchannel('ELSA','MStilHTR','HStill',[0,100000,Inf,1]);
         smaddchannel('ELSA','Turbo1','Turbo1',[0,1,Inf,1]);
     catch err
-        fprintf(['*ERROR* problem with connecting to OITriton\n' err.identifier ': ' err.message '\n'])
+        fprintf(['*ERROR* OITriton: ' err.identifier ': ' err.message '\n']);
     end
 end
 
-%================== IPS Mercury (Serial) =======================
-if isfield(CFG,'IPS_Mercury') && isfield(CFG.IPS_Mercury,'serial') && ~isempty(CFG.IPS_Mercury.serial)
+%================== IPS Mercury (Serial/TCP/etc) =======================
+if isfield(Inst_CFG,'IPS_Mercury') && has_transport_fields(Inst_CFG.IPS_Mercury)
     try
-        ind = smloadinst('IPSM', [], 'serial', CFG.IPS_Mercury.serial);
+        [ind, how] = smloadinst_by_cfg('IPSM', Inst_CFG.IPS_Mercury, Inst_CFG.GPIB);
         smopen(ind);
         smdata.inst(ind).name = 'IPSM';
-        smaddchannel('IPSM','B','B',[-5,5,Inf,1]); 
+        fprintf('[IPSM] Connected via %s\n', how);
+
+        smaddchannel('IPSM','B','B',[-5,5,Inf,1]);
         smaddchannel('IPSM','Persistent','Persistent',[0,1,Inf,1]);
         smaddchannel('IPSM','RampRate','BRate',[0,0.15,Inf,1]);
     catch err
-        fprintf(['*ERROR* problem with connecting to IPS Mercury\n' err.identifier ': ' err.message '\n'])
+        fprintf(['*ERROR* IPS Mercury: ' err.identifier ': ' err.message '\n']);
     end
 end
 
 %========== iPS Magnet LabVIEW Control (toggle via .enable) ==========
-% Use unified enable flags for non-GPIB/TCP instruments:
-%   - Requires CFG.enable.IPSM_LV to be truthy
-%   - And requires CFG.enable.PPMS to be truthy
-if isfield(CFG,'IPSM_LV') && isfield(CFG.enable,'enable') && ~isempty(CFG.IPSM_LV.enable) && CFG.IPSM_LV.enable
+if isfield(Inst_CFG,'IPSM_LV') && isfield(Inst_CFG.IPSM_LV,'enable') && ~isempty(Inst_CFG.IPSM_LV.enable) && Inst_CFG.IPSM_LV.enable
     try
         global viSETB;
         global viGETB;
         mag = actxserver('LabVIEW.Application');
-        
 
-        baseDir = strtrim(userpath); % remove trailing semicolon if exists
-        viSETBpath = fullfile(baseDir, 'sm\channels\vi\Triton_Elsa_Signaling.vi');
-        viSETB = invoke(mag, 'GetVIReference', viSETBpath);
-        % Add SetB reference
-        viSETBpath = fullfile(baseDir, 'sm\channels\vi\OI_IPSM_Signaling.vi');
-        viSETB=invoke(mag,'GetVIReference',viSETBpath);
-        !sm\channels\vi\OI_IPSM_Signaling.vi; 
-        % Add ReadB reference
-        viSETBpath = fullfile(baseDir, 'sm\channels\vi\OI_IPSM_Control_Remote.vi');
-        viGETB = invoke(mag,'GetVIReference',viGETBpath);
-        !sm\channels\vi\OI_IPSM_Signaling.vi;
+        baseDir = strtrim(userpath);
+        viSETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\Triton_Elsa_Signaling.vi'));
+        viSETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\OI_IPSM_Signaling.vi'));
+        !sm\channels\vi\OI_IPSM_Signaling.vi
+        viGETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\OI_IPSM_Control_Remote.vi'));
+        !sm\channels\vi\OI_IPSM_Signaling.vi
 
         ind = smloadinst('IPSM_LV', [], 'None');
         smdata.inst(ind).name = 'IPSM_LV';
-        smaddchannel('IPSM_LV','Field','B',[-5,5,Inf,1]); 
+        smaddchannel('IPSM_LV','Field','B',[-5,5,Inf,1]);
         smaddchannel('IPSM_LV','Brate','Brate',[0,0.15,Inf,1]);
     catch err
-        fprintf(['*ERROR* problem with connecting to IPSM Magnet (LV)\n' err.identifier ': ' err.message '\n'])
+        fprintf(['*ERROR* IPSM Magnet (LV): ' err.identifier ': ' err.message '\n']);
     end
 end
 
-%% Add Cell12 Magnet Control (LabVIEW)
-if isfield(CFG,'Cell12_MAG_Use') && isfield(CFG.Cell12_MAG_Use,'enable') ...
-        && ~isempty(CFG.Cell12_MAG_Use.enable) && CFG.enable.Cell12_MAG_Use ...
+%% Cell12 Magnet Control (LabVIEW)
+if isfield(Inst_CFG,'Cell12_MAG_Use') && isfield(Inst_CFG.Cell12_MAG_Use,'enable') && ~isempty(Inst_CFG.Cell12_MAG_Use.enable) && Inst_CFG.Cell12_MAG_Use.enable
     try
         global viSETB;
         global viGETB;
         mag = actxserver('LabVIEW.Application');
 
-       % Add SetB reference using relative path based on userpath
-        baseDir = strtrim(userpath); % remove trailing semicolon if exists
-        viSETBpath = fullfile(baseDir, 'sm\channels\vi\Cell12_MAG_Signaling.vi');
-        viSETB = invoke(mag, 'GetVIReference', viSETBpath);
-        
-        % Open VI file via system command
+        baseDir = strtrim(userpath);
+        viSETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\Cell12_MAG_Signaling.vi'));
         !sm\channels\vi\Cell12_MAG_Signaling.vi
-        
-        % Add ReadB reference using relative path based on userpath
-        viGETBpath = fullfile(baseDir, 'sm\channels\vi\Cell12_PS_Control_Remote.vi');
-        viGETB = invoke(mag, 'GetVIReference', viGETBpath);
-        
-        % Open VI file via system command (same as above)
+        viGETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\Cell12_PS_Control_Remote.vi'));
         !sm\channels\vi\Cell16_MAG_Signaling.vi
-        
+
         ind = smloadinst('Cell12_MAG', [], 'None');
         smdata.inst(ind).name = 'Cell12_MAG';
-        
-        % Channels
         smaddchannel('Cell12_MAG','Field','B',[-35,35,Inf,1]);
         smaddchannel('Cell12_MAG','Brate','Brate',[0,7,Inf,1]);
         smaddchannel('Cell12_MAG','T','T',[0,20,Inf,1]);
         smaddchannel('Cell12_MAG','Trate','Trate',[0,1,Inf,1]);
- 
     catch err
-        fprintf(['*ERROR* problem with connecting to Cell12 Magnet\n' err.identifier ': ' err.message '\n'])
+        fprintf(['*ERROR* Cell12 Magnet: ' err.identifier ': ' err.message '\n']);
     end
 end
 
 %====================== SR830_1: LockIn ======================
-if isfield(CFG,'SR830_1') && isfield(CFG.SR830_1,'gpib_addr') && ~isempty(CFG.SR830_1.gpib_addr)
+if isfield(Inst_CFG,'SR830_1') && has_transport_fields(Inst_CFG.SR830_1)
     try
-        ind = smloadinst('SR830_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.SR830_1.gpib_addr);
+        [ind, how] = smloadinst_by_cfg('SR830_Ramp', Inst_CFG.SR830_1, Inst_CFG.GPIB);
         smopen(ind);
 
-        smdata.inst(ind).name   = 'SR830_1';
+        smdata.inst(ind).name    = 'SR830_1';
         smdata.inst(ind).cntrlfn = @smcSR830_Ramp;
+        fprintf('[SR830_1] %s\n', how);
 
-        % Live channels
         smaddchannel('SR830_1','X', 'Isd_1',   [-Inf, Inf, Inf, 1e6]);
         smaddchannel('SR830_1','Y', 'Isd_Y_1', [-Inf, Inf, Inf, 1e6]);
-        smaddchannel('SR830_1','OUT1',  'AUX_OUT1', [-10, 10, 0.001, 1]);    % V
-        
-        % Buffered channels
-        smaddchannel('SR830_1','DATA1','Iac1-buf_1');        % X trace
-        smaddchannel('SR830_1','DATA2','Iac1-phase-buf_1');  % Phase trace
+        smaddchannel('SR830_1','OUT1','AUX_OUT1',[-10,10,0.001,1]);
+        smaddchannel('SR830_1','DATA1','Iac1-buf_1');
+        smaddchannel('SR830_1','DATA2','Iac1-phase-buf_1');
     catch err
         fprintf(['*ERROR* SR830_1: ' err.identifier ': ' err.message '\n']);
     end
 end
 
 %====================== SR830_2: LockIn ======================
-if isfield(CFG,'SR830_2') && isfield(CFG.SR830_2,'gpib_addr') && ~isempty(CFG.SR830_2.gpib_addr)
+if isfield(Inst_CFG,'SR830_2') && has_transport_fields(Inst_CFG.SR830_2)
     try
-        ind = smloadinst('SR830_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.SR830_2.gpib_addr);
+        [ind, how] = smloadinst_by_cfg('SR830_Ramp', Inst_CFG.SR830_2, Inst_CFG.GPIB);
         smopen(ind);
 
-        smdata.inst(ind).name   = 'SR830_2';
+        smdata.inst(ind).name    = 'SR830_2';
         smdata.inst(ind).cntrlfn = @smcSR830_Ramp;
+        fprintf('[SR830_2] %s\n', how);
 
-        % Live channels
         smaddchannel('SR830_2','X', 'Isd_2',   [-Inf, Inf, Inf, 1e6]);
         smaddchannel('SR830_2','Y', 'Isd_Y_2', [-Inf, Inf, Inf, 1e6]);
-
-        % Buffered channels
-        smaddchannel('SR830_2','DATA1','Iac1-buf_2');        % X trace
-        smaddchannel('SR830_2','DATA2','Iac1-phase-buf_2');  % Phase trace
+        smaddchannel('SR830_2','DATA1','Iac1-buf_2');
+        smaddchannel('SR830_2','DATA2','Iac1-phase-buf_2');
     catch err
         fprintf(['*ERROR* SR830_2: ' err.identifier ': ' err.message '\n']);
     end
 end
 
 %====================== SR830_3: LockIn ======================
-if isfield(CFG,'SR830_3') && isfield(CFG.SR830_3,'gpib_addr') && ~isempty(CFG.SR830_3.gpib_addr)
+if isfield(Inst_CFG,'SR830_3') && has_transport_fields(Inst_CFG.SR830_3)
     try
-        ind = smloadinst('SR830_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.SR830_3.gpib_addr);
+        [ind, how] = smloadinst_by_cfg('SR830_Ramp', Inst_CFG.SR830_3, Inst_CFG.GPIB);
         smopen(ind);
 
-        smdata.inst(ind).name   = 'SR830_3';
+        smdata.inst(ind).name    = 'SR830_3';
         smdata.inst(ind).cntrlfn = @smcSR830_Ramp;
+        fprintf('[SR830_3] %s\n', how);
 
-        % Live channels
         smaddchannel('SR830_3','X', 'Isd_3',   [-Inf, Inf, Inf, 1e6]);
         smaddchannel('SR830_3','Y', 'Isd_Y_3', [-Inf, Inf, Inf, 1e6]);
-
-        % Buffered channels
-        smaddchannel('SR830_3','DATA1','Iac1-buf_3');        % X trace
-        smaddchannel('SR830_3','DATA2','Iac1-phase-buf_3');  % Phase trace
+        smaddchannel('SR830_3','DATA1','Iac1-buf_3');
+        smaddchannel('SR830_3','DATA2','Iac1-phase-buf_3');
     catch err
         fprintf(['*ERROR* SR830_3: ' err.identifier ': ' err.message '\n']);
     end
 end
 
 %====================== SR830_4: LockIn ======================
-if isfield(CFG,'SR830_4') && isfield(CFG.SR830_4,'gpib_addr') && ~isempty(CFG.SR830_4.gpib_addr)
+if isfield(Inst_CFG,'SR830_4') && has_transport_fields(Inst_CFG.SR830_4)
     try
-        ind = smloadinst('SR830_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.SR830_4.gpib_addr);
+        [ind, how] = smloadinst_by_cfg('SR830_Ramp', Inst_CFG.SR830_4, Inst_CFG.GPIB);
         smopen(ind);
 
-        smdata.inst(ind).name   = 'SR830_4';
+        smdata.inst(ind).name    = 'SR830_4';
         smdata.inst(ind).cntrlfn = @smcSR830_Ramp;
+        fprintf('[SR830_4] %s\n', how);
 
-        % Live channels
         smaddchannel('SR830_4','X', 'Isd_4',   [-Inf, Inf, Inf, 1e6]);
         smaddchannel('SR830_4','Y', 'Isd_Y_4', [-Inf, Inf, Inf, 1e6]);
-
-        % Buffered channels
-        smaddchannel('SR830_3','DATA1','Iac1-buf_4');        % X trace
-        smaddchannel('SR830_3','DATA2','Iac1-phase-buf_4');  % Phase trace
+        smaddchannel('SR830_4','DATA1','Iac1-buf_4');
+        smaddchannel('SR830_4','DATA2','Iac1-phase-buf_4');
     catch err
-        fprintf(['*ERROR* SR830_3: ' err.identifier ': ' err.message '\n']);
+        fprintf(['*ERROR* SR830_4: ' err.identifier ': ' err.message '\n']);
     end
 end
 
 %====================== Keithley 2400_1 ==========================
-if isfield(CFG,'K2400_1') && isfield(CFG.K2400_1,'gpib_addr') && ~isempty(CFG.K2400_1.gpib_addr)
+if isfield(Inst_CFG,'K2400_1') && has_transport_fields(Inst_CFG.K2400_1)
     try
-        ind = smloadinst('K2400_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.K2400_1.gpib_addr);
+        [ind, how] = smloadinst_by_cfg('K2400_Ramp', Inst_CFG.K2400_1, Inst_CFG.GPIB);
         smopen(ind);
 
-        smdata.inst(ind).name = 'K2400_1';
+        smdata.inst(ind).name    = 'K2400_1';
         smdata.inst(ind).cntrlfn = @smcK2400_Ramp;
+        fprintf('[K2400_1] %s\n', how);
 
         set(smdata.inst(ind).data.inst,'inputbuffersize',2^18);
         set(smdata.inst(ind).data.inst,'outputbuffersize',2^10);
         set(smdata.inst(ind).data.inst,'eosmode','read&write');
-        
 
-        smaddchannel('K2400_1','V',     'V1',     [-10, 10, Inf, 1]);      % source V
-        smaddchannel('K2400_1','I',     'I1',     [-Inf, Inf, Inf, 1e6]);  % read I
-        smaddchannel('K2400_1','I-buf', 'I1-buf');                         % buffered I
+        smaddchannel('K2400_1','V',     'V1',     [-10, 10, Inf, 1]);
+        smaddchannel('K2400_1','I',     'I1',     [-Inf, Inf, Inf, 1e6]);
+        smaddchannel('K2400_1','I-buf', 'I1-buf');
 
         fprintf(smdata.inst(ind).data.inst,'*rst');
 
-        if isfield(CFG.K2400_1,'mode') && strcmp(CFG.K2400_1.mode,'Voltage')
+        if isfield(Inst_CFG.K2400_1,'mode') && strcmpi(Inst_CFG.K2400_1.mode,'Voltage')
             fprintf(smdata.inst(ind).data.inst,':source:func:mode volt');
             fprintf(smdata.inst(ind).data.inst,':sense:current:range 1e-6');
             fprintf(smdata.inst(ind).data.inst,':sense:current:protection 1e-6');
             fprintf(smdata.inst(ind).data.inst,':source:voltage:delay 0.0');
             fprintf(smdata.inst(ind).data.inst,':source:voltage:range:auto 1');
-        elseif isfield(CFG.K2400_1,'mode') && strcmp(CFG.K2400_1.mode,'Current')
+        elseif isfield(Inst_CFG.K2400_1,'mode') && strcmpi(Inst_CFG.K2400_1.mode,'Current')
             fprintf(smdata.inst(ind).data.inst,':source:func:mode curr');
             fprintf(smdata.inst(ind).data.inst,':sense:voltage:protection 1');
             fprintf(smdata.inst(ind).data.inst,':sense:voltage:range 10');
@@ -315,38 +278,37 @@ if isfield(CFG,'K2400_1') && isfield(CFG.K2400_1,'gpib_addr') && ~isempty(CFG.K2
         end
         fprintf(smdata.inst(ind).data.inst,':output on');
     catch err
-        fprintf(['*ERROR* problem with connecting to the Source (K2400_1)\n' err.identifier ': ' err.message '\n'])
+        fprintf(['*ERROR* K2400_1: ' err.identifier ': ' err.message '\n']);
     end
 end
 
-
 %====================== Keithley 2400_2 ==========================
-if isfield(CFG,'K2400_2') && isfield(CFG.K2400_2,'gpib_addr') && ~isempty(CFG.K2400_2.gpib_addr)
+if isfield(Inst_CFG,'K2400_2') && has_transport_fields(Inst_CFG.K2400_2)
     try
-        ind = smloadinst('K2400_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.K2400_2.gpib_addr);
+        [ind, how] = smloadinst_by_cfg('K2400_Ramp', Inst_CFG.K2400_2, Inst_CFG.GPIB);
         smopen(ind);
 
-        smdata.inst(ind).name = 'K2400_2';
-
+        smdata.inst(ind).name    = 'K2400_2';
         smdata.inst(ind).cntrlfn = @smcK2400_Ramp;
+        fprintf('[K2400_2] %s\n', how);
 
         set(smdata.inst(ind).data.inst,'inputbuffersize',2^18);
         set(smdata.inst(ind).data.inst,'outputbuffersize',2^10);
         set(smdata.inst(ind).data.inst,'eosmode','read&write');
-        
-        smaddchannel('K2400_2','V',     'V2',     [-10, 10, Inf, 1]);      % source V
-        smaddchannel('K2400_2','I',     'I2',     [-Inf, Inf, Inf, 1e6]);  % read I
-        smaddchannel('K2400_2','I-buf', 'I2-buf');                         % buffered I
+
+        smaddchannel('K2400_2','V',     'V2',     [-10, 10, Inf, 1]);
+        smaddchannel('K2400_2','I',     'I2',     [-Inf, Inf, Inf, 1e6]);
+        smaddchannel('K2400_2','I-buf', 'I2-buf');
 
         fprintf(smdata.inst(ind).data.inst,'*rst');
 
-        if isfield(CFG.K2400_2,'mode') && strcmp(CFG.K2400_2.mode,'Voltage')
+        if isfield(Inst_CFG.K2400_2,'mode') && strcmpi(Inst_CFG.K2400_2.mode,'Voltage')
             fprintf(smdata.inst(ind).data.inst,':source:func:mode volt');
             fprintf(smdata.inst(ind).data.inst,':sense:current:range 1e-6');
             fprintf(smdata.inst(ind).data.inst,':sense:current:protection 1e-6');
             fprintf(smdata.inst(ind).data.inst,':source:voltage:delay 0.0');
             fprintf(smdata.inst(ind).data.inst,':source:voltage:range:auto 1');
-        elseif isfield(CFG.K2400_2,'mode') && strcmp(CFG.K2400_2.mode,'Current')
+        elseif isfield(Inst_CFG.K2400_2,'mode') && strcmpi(Inst_CFG.K2400_2.mode,'Current')
             fprintf(smdata.inst(ind).data.inst,':source:func:mode curr');
             fprintf(smdata.inst(ind).data.inst,':sense:voltage:protection 1');
             fprintf(smdata.inst(ind).data.inst,':sense:voltage:range 10');
@@ -355,37 +317,37 @@ if isfield(CFG,'K2400_2') && isfield(CFG.K2400_2,'gpib_addr') && ~isempty(CFG.K2
         end
         fprintf(smdata.inst(ind).data.inst,':output on');
     catch err
-        fprintf(['*ERROR* problem with connecting to the Source (K2400_2)\n' err.identifier ': ' err.message '\n'])
+        fprintf(['*ERROR* K2400_2: ' err.identifier ': ' err.message '\n']);
     end
 end
 
 %====================== Keithley 2400_3 ==========================
-if isfield(CFG,'K2400_3') && isfield(CFG.K2400_3,'gpib_addr') && ~isempty(CFG.K2400_3.gpib_addr)
+if isfield(Inst_CFG,'K2400_3') && has_transport_fields(Inst_CFG.K2400_3)
     try
-        ind = smloadinst('K2400_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.K2400_3.gpib_addr);
+        [ind, how] = smloadinst_by_cfg('K2400_Ramp', Inst_CFG.K2400_3, Inst_CFG.GPIB);
         smopen(ind);
 
-        smdata.inst(ind).name = 'K2400_3';
-
+        smdata.inst(ind).name    = 'K2400_3';
         smdata.inst(ind).cntrlfn = @smcK2400_Ramp;
+        fprintf('[K2400_3] %s\n', how);
 
         set(smdata.inst(ind).data.inst,'inputbuffersize',2^18);
         set(smdata.inst(ind).data.inst,'outputbuffersize',2^10);
         set(smdata.inst(ind).data.inst,'eosmode','read&write');
-        
-        smaddchannel('K2400_3','V',     'V3',     [-10, 10, Inf, 1]);      % source V
-        smaddchannel('K2400_3','I',     'I3',     [-Inf, Inf, Inf, 1e6]);  % read I
-        smaddchannel('K2400_3','I-buf', 'I3-buf');                         % buffered I
+
+        smaddchannel('K2400_3','V',     'V3',     [-10, 10, Inf, 1]);
+        smaddchannel('K2400_3','I',     'I3',     [-Inf, Inf, Inf, 1e6]);
+        smaddchannel('K2400_3','I-buf', 'I3-buf');
 
         fprintf(smdata.inst(ind).data.inst,'*rst');
 
-        if isfield(CFG.K2400_3,'mode') && strcmp(CFG.K2400_3.mode,'Voltage')
+        if isfield(Inst_CFG.K2400_3,'mode') && strcmpi(Inst_CFG.K2400_3.mode,'Voltage')
             fprintf(smdata.inst(ind).data.inst,':source:func:mode volt');
             fprintf(smdata.inst(ind).data.inst,':sense:current:range 1e-6');
             fprintf(smdata.inst(ind).data.inst,':sense:current:protection 1e-6');
             fprintf(smdata.inst(ind).data.inst,':source:voltage:delay 0.0');
             fprintf(smdata.inst(ind).data.inst,':source:voltage:range:auto 1');
-        elseif isfield(CFG.K2400_3,'mode') && strcmp(CFG.K2400_3.mode,'Current')
+        elseif isfield(Inst_CFG.K2400_3,'mode') && strcmpi(Inst_CFG.K2400_3.mode,'Current')
             fprintf(smdata.inst(ind).data.inst,':source:func:mode curr');
             fprintf(smdata.inst(ind).data.inst,':sense:voltage:protection 1');
             fprintf(smdata.inst(ind).data.inst,':sense:voltage:range 10');
@@ -394,17 +356,19 @@ if isfield(CFG,'K2400_3') && isfield(CFG.K2400_3,'gpib_addr') && ~isempty(CFG.K2
         end
         fprintf(smdata.inst(ind).data.inst,':output on');
     catch err
-        fprintf(['*ERROR* problem with connecting to the Source (K2400_3)\n' err.identifier ': ' err.message '\n'])
+        fprintf(['*ERROR* K2400_3: ' err.identifier ': ' err.message '\n']);
     end
 end
+
 %====================== Keithley 2450 ==========================
-if isfield(CFG,'K2450') && isfield(CFG.K2450,'gpib_addr') && ~isempty(CFG.K2450.gpib_addr)
+if isfield(Inst_CFG,'K2450') && has_transport_fields(Inst_CFG.K2450)
     try
-        ind = smloadinst('k2450_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.K2450.gpib_addr);
+        [ind, how] = smloadinst_by_cfg('K2450_Ramp', Inst_CFG.K2450, Inst_CFG.GPIB);
         smopen(ind);
 
         smdata.inst(ind).name    = 'K2450';
         smdata.inst(ind).cntrlfn = @smcK2450_Ramp;
+        fprintf('[K2450] %s\n', how);
 
         smaddchannel('K2450','Vg',     'Vg',     [-10, 10, Inf, 1]);
         smaddchannel('K2450','Ig',     'Ig',     [-Inf, Inf, Inf, 1e6]);
@@ -413,18 +377,19 @@ if isfield(CFG,'K2450') && isfield(CFG.K2450,'gpib_addr') && ~isempty(CFG.K2450.
         fprintf(smdata.inst(ind).data.inst,'*rst');
         fprintf(smdata.inst(ind).data.inst,'*cls');
     catch err
-        fprintf(['*ERROR* problem with connecting to the Source (K2450)\n' err.identifier ': ' err.message '\n']);
+        fprintf(['*ERROR* K2450: ' err.identifier ': ' err.message '\n']);
     end
 end
 
 %====================== Keithley 2450_2 ========================
-if isfield(CFG,'K2450_2') && isfield(CFG.K2450_2,'gpib_addr') && ~isempty(CFG.K2450_2.gpib_addr)
+if isfield(Inst_CFG,'K2450_2') && has_transport_fields(Inst_CFG.K2450_2)
     try
-        ind = smloadinst('K2450_Ramp', [], CFG.GPIB.board, CFG.GPIB.index, CFG.K2450_2.gpib_addr);
+        [ind, how] = smloadinst_by_cfg('K2450_Ramp', Inst_CFG.K2450_2, Inst_CFG.GPIB);
         smopen(ind);
 
         smdata.inst(ind).name    = 'K2450_2';
         smdata.inst(ind).cntrlfn = @smcK2450_Ramp;
+        fprintf('[K2450_2] %s\n', how);
 
         smaddchannel('K2450_2','Vg',     'Vbg',     [-10, 10, Inf, 1]);
         smaddchannel('K2450_2','Ig',     'Ibg',     [-Inf, Inf, Inf, 1e6]);
@@ -433,33 +398,37 @@ if isfield(CFG,'K2450_2') && isfield(CFG.K2450_2,'gpib_addr') && ~isempty(CFG.K2
         fprintf(smdata.inst(ind).data.inst,'*rst');
         fprintf(smdata.inst(ind).data.inst,'*cls');
     catch err
-        fprintf(['*ERROR* problem with connecting to the Source (K2450_2)\n' err.identifier ': ' err.message '\n']);
+        fprintf(['*ERROR* K2450_2: ' err.identifier ': ' err.message '\n']);
     end
 end
 
-%=================== CryoLtd Magnet (Serial) ===================
-if isfield(CFG,'Magnet') && isfield(CFG.Magnet,'serial') && ~isempty(CFG.Magnet.serial)
+%=================== CryoLtd Magnet (Serial/TCP/GPIB/USB) ===================
+if isfield(Inst_CFG,'Magnet') && has_transport_fields(Inst_CFG.Magnet)
     try
-        ind = smloadinst('CryoLtd', [], 'serial', CFG.Magnet.serial);
+        [ind, how] = smloadinst_by_cfg('CryoLtd', Inst_CFG.Magnet, Inst_CFG.GPIB);
         smopen(ind);
         smdata.inst(ind).name = 'Magnet';
+        fprintf('[Magnet CryoLtd] %s\n', how);
+
         smaddchannel('Magnet','I','B',[-9,9,Inf,10.167]);    % auto ramp
         smaddchannel('Magnet','M','Bmax',[0,1,Inf,10.167]);  % max field
     catch err
-        fprintf(['*ERROR* problem with connecting to the Magnet\n' err.identifier ': ' err.message '\n'])
+        fprintf(['*ERROR* Magnet (CryoLtd): ' err.identifier ': ' err.message '\n']);
     end
 end
 
 %============ Current source (K2400) as small B magnet =========
-if isfield(CFG,'MagnetK2400') && isfield(CFG.MagnetK2400,'gpib_addr') && ~isempty(CFG.MagnetK2400.gpib_addr)
+if isfield(Inst_CFG,'MagnetK2400') && has_transport_fields(Inst_CFG.MagnetK2400)
     try
-        ind = smloadinst('K2400', [], CFG.GPIB.board, CFG.GPIB.index, CFG.MagnetK2400.gpib_addr);
-        set(smdata.inst(ind).data.inst,'inputbuffersize',2^18);
-        set(smdata.inst(ind).data.inst,'outputbuffersize',2^10);
-        set(smdata.inst(ind).data.inst,'eosmode','read&write');
+        [ind, how] = smloadinst_by_cfg('K2400', Inst_CFG.MagnetK2400, Inst_CFG.GPIB);
         smopen(ind);
 
         smdata.inst(ind).name = 'MagnetSource';
+        fprintf('[MagnetSource K2400] %s\n', how);
+
+        set(smdata.inst(ind).data.inst,'inputbuffersize',2^18);
+        set(smdata.inst(ind).data.inst,'outputbuffersize',2^10);
+        set(smdata.inst(ind).data.inst,'eosmode','read&write');
 
         fprintf(smdata.inst(ind).data.inst,'*RST');
         fprintf(smdata.inst(ind).data.inst,':sour:func curr');
@@ -468,19 +437,20 @@ if isfield(CFG,'MagnetK2400') && isfield(CFG.MagnetK2400,'gpib_addr') && ~isempt
 
         smaddchannel('MagnetSource','V','VB',[-Inf Inf Inf 1]); % read-only
         smaddchannel('MagnetSource','I','Bi',[-0.1032,0.1032,0.0005,9.6899]);
-        smget('VB')
+        smget('VB');
     catch err
-        fprintf(['*ERROR* problem with connecting to the MagnetSource (K2400)\n' err.identifier ': ' err.message '\n'])
+        fprintf(['*ERROR* MagnetSource (K2400): ' err.identifier ': ' err.message '\n']);
     end
 end
 
-%=========== B2902A as magnet current source (GPIB) ============
-if isfield(CFG,'MagnetSource') && isfield(CFG.MagnetSource,'gpib_addr') && ~isempty(CFG.MagnetSource.gpib_addr)
+%=========== B2902A as magnet current source (USB/GPIB/TCP) ====
+if isfield(Inst_CFG,'MagnetSource') && has_transport_fields(Inst_CFG.MagnetSource)
     try
-        ind = smloadinst('B2902A', [], CFG.GPIB.board, CFG.GPIB.index, CFG.MagnetSource.gpib_addr);
+        [ind, how] = smloadinst_by_cfg('B2902A', Inst_CFG.MagnetSource, Inst_CFG.GPIB);
         smopen(ind);
         smdata.inst(ind).name    = 'MagnetSource';
         smdata.inst(ind).cntrlfn = @smcB2902A_Alt;
+        fprintf('[MagnetSource B2902A] %s\n', how);
 
         smaddchannel('MagnetSource','V1','VB',[-Inf Inf Inf 1]); % read-only
         smaddchannel('MagnetSource','I1','Bi',[-0.4,0.4,0.002,1/0.1336]);
@@ -490,107 +460,206 @@ if isfield(CFG,'MagnetSource') && isfield(CFG.MagnetSource,'gpib_addr') && ~isem
         fprintf(smdata.inst(ind).data.inst,':sense1:voltage:protection 2');
         fprintf(smdata.inst(ind).data.inst,':sense1:voltage:range:auto 2');
         fprintf(smdata.inst(ind).data.inst,':output1 on');
-        smget('VB')
+        smget('VB');
     catch err
-        fprintf(['*ERROR* problem with connecting to the MagnetSource (B2902A)\n' err.identifier ': ' err.message '\n'])
+        fprintf(['*ERROR* MagnetSource (B2902A): ' err.identifier ': ' err.message '\n']);
     end
 end
 
 %=================== Triple Current Source (TCS) ===============
-if isfield(CFG,'TCS') && isfield(CFG.TCS,'serial') && ~isempty(CFG.TCS.serial)
+if isfield(Inst_CFG,'TCS') && has_transport_fields(Inst_CFG.TCS)
     try
-        ind = smloadinst('TCS', [], 'serial', CFG.TCS.serial);
-        smdata.inst(ind).name = 'TCS';
+        [ind, how] = smloadinst_by_cfg('TCS', Inst_CFG.TCS, Inst_CFG.GPIB);
         smopen(ind);
+        smdata.inst(ind).name = 'TCS';
+        fprintf('[TCS] %s\n', how);
 
         smaddchannel('TCS','SRC1','I_sorp',   [-Inf, Inf, Inf, 1]);
         smaddchannel('TCS','SRC1','I_switch', [-Inf, Inf, Inf, 1]);
         smaddchannel('TCS','SRC2','I_still',  [-Inf, Inf, Inf, 1]);
         smaddchannel('TCS','SRC3','I_mc',     [-Inf, Inf, Inf, 1]);
     catch err
-        fprintf(['*ERROR* problem with connecting to TCS\n' err.identifier ': ' err.message '\n'])
+        fprintf(['*ERROR* TCS: ' err.identifier ': ' err.message '\n']);
     end
 end
 
-%% Custom Channels
-% smaddchannel('LockIn_Upper', 'X', 'G2', [-Inf, Inf, Inf, 1e3]);
-% smaddchannel('LockIn_Upper', 'X', 'I2', [-Inf, Inf, Inf, 1e7]);
-% smaddchannel('LockIn_Lower', 'X', 'Rtemp', [-Inf, Inf, Inf, 1e-8]);
-% smaddchannel('LockIn_Upper', 'X', 'Vxx', [-Inf, Inf, Inf, 100]);
-% smaddchannel('LockIn_Middle', 'X', 'Isd', [-Inf, Inf, Inf, 1e6]);
-% smaddchannel('LockIn_Middle', 'X', 'Rt', [-Inf, Inf, Inf, 1e-7]);
-% smaddchannel('LockIn_High', 'X', 'Rt', [-Inf, Inf, Inf, 1e-9]);
-% smaddchannel('LockIn_Lower', 'X', 'V4', [-Inf, Inf, Inf, 1e3]);
-% smaddchannel('LockIn_High', 'X', 'Rtemp', [-Inf, Inf, Inf, 1e-9]);
-
-%% Add Function channels
-
+%% Custom Function channels (unchanged)
 ind = smloadinst('Function');
-% smdata.inst(ind).name = 'Fun1';
-
 smdata.inst(ind).data.dependences={'Vbg','Vtg'};
 smdata.inst(ind).data.formula={...
     @(n,E) (n-E)/1.06/2 + 0.08,...
     @(n,E) (n+E)/0.387/2 + 1.4...
     };
 smaddchannel('Function', 'VAR1', 'n'); % Density (10^12 cm^-2)
-smaddchannel('Function', 'VAR2', 'E'); % Electric field (arb.unit)
+smaddchannel('Function', 'VAR2', 'E'); % Electric field
 
-%% Add Function channels
-
-ind = smloadinst('Function');
-smdata.inst(ind).name = 'Fun2';
-
+ind = smloadinst('Function'); smdata.inst(ind).name = 'Fun2';
 smdata.inst(ind).data.dependences={'Vdc'};
 smdata.inst(ind).data.formula={@(x) 10^x};
-smaddchannel('Fun2', 'VAR1', 'log10Vdc'); % 
+smaddchannel('Fun2', 'VAR1', 'log10Vdc');
 
-%% Add Function channels
-
-ind = smloadinst('Function');
-smdata.inst(ind).name = 'Fun3';
-
+ind = smloadinst('Function'); smdata.inst(ind).name = 'Fun3';
 smdata.inst(ind).data.dependences={'Freq'};
 smdata.inst(ind).data.formula={@(x) 10^x};
-smaddchannel('Fun3', 'VAR1', 'log10Freq'); % 
+smaddchannel('Fun3', 'VAR1', 'log10Freq');
 
-%% 
+%% Basic prints & GUI
 smprintinst
 smprintchannels
 
-% smgui_small
 global smaux
 smaux.datadir = filedirectory;
-
-if ~isfield(smaux,'run')
-    smaux.run=100;
-end
-
+if ~isfield(smaux,'run'); smaux.run=100; end
 smaux.initialized=1;
 sm
 smgui_buf
 
-% set up save loop
-% smscan.saveloop = 2;
-
-% escape fns
+% Escape function
 smscan.escapefn.fn = @(x) smset({'dummy','count'},[0,0]);
 smscan.escapefn.args = {};
 
 cd(filedirectory)
 
+%% ===================== Helper functions =====================
 
-% index_instr=[4:7 11];
-% for ii=index_instr 
-%     smopen(ii);
-% end
-% smset('Ic3',6e-9);
-% smset('Ic4',6e-9);
-% for ii=index_instr 
-%     smclose(ii);
-% end
-% for ii=index_instr
-%     smopen(ii);
-% end
-% fprintf(smdata.inst(6).data.inst,':source:voltage:range:auto 1');
-% fprintf(smdata.inst(7).data.inst,':source:voltage:range:auto 1');
+function tf = has_transport_fields(cfg)
+    if isempty(cfg) || ~isstruct(cfg), tf = false; return; end
+    tf = false;
+    if (isfield(cfg,'usb') && ~isempty(cfg.usb)) || (isfield(cfg,'Usb') && ~isempty(cfg.Usb)) || ...
+       (isfield(cfg,'visa') && ~isempty(cfg.visa)) || (isfield(cfg,'Visa') && ~isempty(cfg.Visa)) || ...
+       (isfield(cfg,'resource') && ~isempty(cfg.resource)) || (isfield(cfg,'Resource') && ~isempty(cfg.Resource))
+        tf = true; return;
+    end
+    if (isfield(cfg,'gpib_addr') && ~isempty(cfg.gpib_addr)) || (isfield(cfg,'Gpib') && ~isempty(cfg.Gpib))
+        tf = true; return;
+    end
+    if (isfield(cfg,'tcp') && ~isempty(cfg.tcp)) || (isfield(cfg,'Tcp') && ~isempty(cfg.Tcp))
+        tf = true; return;
+    end
+    if (isfield(cfg,'serial') && ~isempty(cfg.serial)) || (isfield(cfg,'Serial') && ~isempty(cfg.Serial)) || ...
+       (isfield(cfg,'Com') && ~isempty(cfg.Com))
+        tf = true; return;
+    end
+    % Optional .enable gate
+    if isfield(cfg,'enable') && ~isempty(cfg.enable) && logical(cfg.enable)
+        % enable alone doesn't say how to connect; keep false
+    end
+end
+
+function [ind, via] = smloadinst_by_cfg(driverName, cfg, gpibCfg)
+% smloadinst_by_cfg
+% Choose transport strictly from fields in cfg and call smloadinst with the proper signature.
+% Priority: USB/VISA -> GPIB -> TCP -> Serial
+% Inputs:
+%   driverName : string, e.g. 'IPSM', 'SR830_Ramp', 'K2400_Ramp'
+%   cfg        : struct for that instrument (fields like Usb/usb/Visa/resource/Gpib/gpib_addr/Tcp/Port/Serial/Com/enable)
+%   gpibCfg    : struct with fields gpibCfg.board (e.g., 'ni') and gpibCfg.index (e.g., 0)
+% Outputs:
+%   ind : instrument index returned by smloadinst
+%   via : short description of selected transport (for logs)
+
+    if nargin < 3 || isempty(gpibCfg)
+        gpibCfg.board = 'ni';
+        gpibCfg.index = 0;
+    end
+
+    ind = [];
+    via = '';
+
+    % Optional: honor an enable toggle if present
+    if isfield(cfg,'enable') && ~isempty(cfg.enable) && ~logical(cfg.enable)
+        via = 'disabled';
+        error('smloadinst_by_cfg:Disabled','Instrument disabled by cfg.enable=false.');
+    end
+
+    % ---------------- USB/VISA ----------------
+    if (isfield(cfg,'usb') && ~isempty(cfg.usb)) || ...
+       (isfield(cfg,'Usb') && ~isempty(cfg.Usb)) || ...
+       (isfield(cfg,'visa') && ~isempty(cfg.visa)) || ...
+       (isfield(cfg,'Visa') && ~isempty(cfg.Visa)) || ...
+       (isfield(cfg,'resource') && ~isempty(cfg.resource)) || ...
+       (isfield(cfg,'Resource') && ~isempty(cfg.Resource))
+
+        rn = '';
+        if isfield(cfg,'usb')      && ~isempty(cfg.usb),      rn = cfg.usb;      end
+        if isfield(cfg,'Usb')      && ~isempty(cfg.Usb),      rn = cfg.Usb;      end
+        if isfield(cfg,'visa')     && ~isempty(cfg.visa),     rn = cfg.visa;     end
+        if isfield(cfg,'Visa')     && ~isempty(cfg.Visa),     rn = cfg.Visa;     end
+        if isfield(cfg,'resource') && ~isempty(cfg.resource), rn = cfg.resource; end
+        if isfield(cfg,'Resource') && ~isempty(cfg.Resource), rn = cfg.Resource; end
+
+        ind = smloadinst(driverName, [], 'visa', rn);
+        via = sprintf('VISA (%s)', rn);
+        return;
+    end
+
+    % ---------------- GPIB ----------------
+    if (isfield(cfg,'gpib_addr') && ~isempty(cfg.gpib_addr)) || ...
+       (isfield(cfg,'Gpib') && ~isempty(cfg.Gpib))
+
+        addr = [];
+        board = gpibCfg.board;
+        index = gpibCfg.index;
+
+        if isfield(cfg,'gpib_addr') && ~isempty(cfg.gpib_addr)
+            addr = cfg.gpib_addr;
+        end
+        if isfield(cfg,'Gpib') && ~isempty(cfg.Gpib)
+            if isstruct(cfg.Gpib)
+                % Allow struct form: Gpib.board / Gpib.index / Gpib.addr
+                if isfield(cfg.Gpib,'board') && ~isempty(cfg.Gpib.board), board = cfg.Gpib.board; end
+                if isfield(cfg.Gpib,'index') && ~isempty(cfg.Gpib.index), index = cfg.Gpib.index; end
+                if isfield(cfg.Gpib,'addr')  && ~isempty(cfg.Gpib.addr),  addr  = cfg.Gpib.addr;  end
+            else
+                addr = cfg.Gpib;
+            end
+        end
+
+        ind = smloadinst(driverName, [], board, index, addr);
+        via = sprintf('GPIB (%s,%d,%s)', char(string(board)), index, char(string(addr)));
+        return;
+    end
+
+    % ---------------- TCP ----------------
+    if (isfield(cfg,'tcp') && ~isempty(cfg.tcp)) || ...
+       (isfield(cfg,'Tcp') && ~isempty(cfg.Tcp))
+        hp = '';
+        if isfield(cfg,'tcp') && ~isempty(cfg.tcp), hp = cfg.tcp; end
+        if isfield(cfg,'Tcp') && ~isempty(cfg.Tcp), hp = cfg.Tcp; end
+        if isfield(cfg,'Port') && ~isempty(cfg.Port) && ~contains(string(hp),':')
+            hp = sprintf('%s:%d', char(string(hp)), cfg.Port);
+        end
+
+        ind = smloadinst(driverName, [], 'tcpclient', char(string(hp)));
+        via = sprintf('TCP (%s)', char(string(hp)));
+        return;
+    end
+
+    % ---------------- Serial ----------------
+    if (isfield(cfg,'serial') && ~isempty(cfg.serial)) || ...
+       (isfield(cfg,'Serial') && ~isempty(cfg.Serial)) || ...
+       (isfield(cfg,'Com')    && ~isempty(cfg.Com))
+        com = '';
+        if isfield(cfg,'serial') && ~isempty(cfg.serial), com = cfg.serial; end
+        if isfield(cfg,'Serial') && ~isempty(cfg.Serial), com = cfg.Serial; end
+        if isfield(cfg,'Com')    && ~isempty(cfg.Com),    com = cfg.Com;    end
+        if isnumeric(com)
+            com = sprintf('COM%d', com);
+        else
+            s = string(com);
+            if ~startsWith(upper(s),'COM')
+                com = char("COM" + s); % allow '5' etc.
+            else
+                com = char(s);
+            end
+        end
+
+        ind = smloadinst(driverName, [], 'serial', com);
+        via = sprintf('Serial (%s)', com);
+        return;
+    end
+
+    % ---------------- Nothing matched ----------------
+    error('smloadinst_by_cfg:NoTransport', ...
+          'No transport field set for driver "%s". Set one of Usb/Visa/resource, Gpib/gpib_addr, Tcp(+Port), or Serial/Com.', driverName);
+end
