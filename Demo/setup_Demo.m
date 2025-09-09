@@ -3,7 +3,7 @@
 clear all;
 close all;
 instrreset;
-
+format long
 %--------------------- User data directory ---------------------
 filedirectory = 'C:\Users\WangLabAdmin\Desktop\test';
 
@@ -18,11 +18,34 @@ Inst_CFG.GPIB.index = 0;
 % ------------------- Instrument-centric configs ----------------
 % Use ONE transport per instrument: .Usb/.Visa/.Resource, or .Gpib (number or struct), or .Tcp(+.Port), or .Serial/.Com
 
+%% Fridge Connection
+
+% PPMS
+% Inst_CFG.PPMS.enable            = true;
+
+% Maglab SCM1
+% Inst_CFG.SCM1_MAG_Use.enable  = true;
+
+% Maglab Cell12
+% Inst_CFG.Cell12_MAG_Use.enable  = true;
+
+% OI Triton (TCP)
+Inst_CFG.OITriton.Tcp = 'mrl-dvh-elsa.mrl.illinois.edu:33576';  % 'host:port'
+
+% Oxford IPS Mercury (LabVIEW)
+Inst_CFG.IPSM_LV.enable         = true;
+
+% Oxford IPS Mercury (Serial)
+% Inst_CFG.IPS_Mercury.Serial = 'COM3';
+
+
+%% Electronics
+
 % Lock-in SR830 family (examples)
 Inst_CFG.SR830_1.Gpib = 1;        % e.g. 1   (or .Usb = 'USB0::...::INSTR')
-Inst_CFG.SR830_2.Gpib = [];       % fill to enable
-Inst_CFG.SR830_3.Gpib = [];
-Inst_CFG.SR830_4.Gpib = [];
+Inst_CFG.SR830_2.Gpib = 2;       % fill to enable
+Inst_CFG.SR830_3.Gpib = 3;
+Inst_CFG.SR830_4.Gpib = 4;
 
 % SR860 family (optional; comment if unused)
 % Inst_CFG.SR860_1.Gpib = 1;
@@ -31,7 +54,7 @@ Inst_CFG.SR830_4.Gpib = [];
 Inst_CFG.K2400_1.Gpib = 21; Inst_CFG.K2400_1.mode = 'Voltage';  % 'Voltage' or 'Current'
 Inst_CFG.K2400_2.Gpib = 22; Inst_CFG.K2400_2.mode = 'Voltage';
 Inst_CFG.K2400_3.Gpib = 23; Inst_CFG.K2400_3.mode = 'Voltage';
-
+Inst_CFG.KS33511B.Gpib = 11;
 % Keithley 2450 SMUs (examples)
 % Inst_CFG.K2450.Usb   = 'USB0::0x05E6::0x2450::1234567::INSTR';
 % Inst_CFG.K2450_2.Tcp = '192.168.1.50:5025';
@@ -45,19 +68,10 @@ Inst_CFG.K2400_3.Gpib = 23; Inst_CFG.K2400_3.mode = 'Voltage';
 % Current source K2400 as magnet supply (example)
 % Inst_CFG.MagnetK2400.Gpib = 24;
 
-% OI Triton (TCP)
-Inst_CFG.OITriton.Tcp = 'mrl-dvh-elsa.mrl.illinois.edu:33576';  % 'host:port'
 
-% Oxford IPS Mercury (Serial)
-Inst_CFG.IPS_Mercury.Serial = 'COM3';
 
 % Triple Current Source (Serial example)
 % Inst_CFG.TCS.Serial = 'COM7';
-
-% Optional feature toggles
-% Inst_CFG.PPMS.enable            = true;
-% Inst_CFG.IPSM_LV.enable         = true;
-% Inst_CFG.Cell12_MAG_Use.enable  = true;
 
 %%%%=================== Load empty smdata shell ==================
 global smdata;
@@ -103,6 +117,30 @@ if isfield(Inst_CFG,'OITriton') && has_transport_fields(Inst_CFG.OITriton)
     end
 end
 
+%========== iPS Magnet LabVIEW Control (toggle via .enable) ==========
+if isfield(Inst_CFG,'IPSM_LV') && isfield(Inst_CFG.IPSM_LV,'enable') && ~isempty(Inst_CFG.IPSM_LV.enable) && Inst_CFG.IPSM_LV.enable
+    try
+        global viSETB;
+        global viGETB;
+        mag = actxserver('LabVIEW.Application');
+
+        baseDir = strtrim(userpath);
+        viSETB = invoke(mag,'GetVIReference', fullfile(baseDir,'vi\OI_IPSM_Signaling.vi'));
+        winopen(fullfile(baseDir,'vi\OI_IPSM_Signaling.vi'));
+
+        viGETB = invoke(mag,'GetVIReference', fullfile(baseDir,'vi\OI_IPSM_Control_Remote.vi'));
+        winopen(fullfile(baseDir,'vi\OI_IPSM_Control_Remote.vi'));
+
+        ind = smloadinst('IPSM_LV', [], 'None');
+        smdata.inst(ind).name = 'IPSM_LV';
+        smaddchannel('IPSM_LV','Field','B',[-5,5,Inf,1]);
+        smaddchannel('IPSM_LV','Brate','Brate',[0,0.15,Inf,1]);
+    catch err
+        fprintf(['*ERROR* IPSM Magnet (LV): ' err.identifier ': ' err.message '\n']);
+    end
+end
+
+
 %================== IPS Mercury (Serial/TCP/etc) =======================
 if isfield(Inst_CFG,'IPS_Mercury') && has_transport_fields(Inst_CFG.IPS_Mercury)
     try
@@ -119,28 +157,6 @@ if isfield(Inst_CFG,'IPS_Mercury') && has_transport_fields(Inst_CFG.IPS_Mercury)
     end
 end
 
-%========== iPS Magnet LabVIEW Control (toggle via .enable) ==========
-if isfield(Inst_CFG,'IPSM_LV') && isfield(Inst_CFG.IPSM_LV,'enable') && ~isempty(Inst_CFG.IPSM_LV.enable) && Inst_CFG.IPSM_LV.enable
-    try
-        global viSETB;
-        global viGETB;
-        mag = actxserver('LabVIEW.Application');
-
-        baseDir = strtrim(userpath);
-        viSETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\Triton_Elsa_Signaling.vi'));
-        viSETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\OI_IPSM_Signaling.vi'));
-        !sm\channels\vi\OI_IPSM_Signaling.vi
-        viGETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\OI_IPSM_Control_Remote.vi'));
-        !sm\channels\vi\OI_IPSM_Signaling.vi
-
-        ind = smloadinst('IPSM_LV', [], 'None');
-        smdata.inst(ind).name = 'IPSM_LV';
-        smaddchannel('IPSM_LV','Field','B',[-5,5,Inf,1]);
-        smaddchannel('IPSM_LV','Brate','Brate',[0,0.15,Inf,1]);
-    catch err
-        fprintf(['*ERROR* IPSM Magnet (LV): ' err.identifier ': ' err.message '\n']);
-    end
-end
 
 %% Cell12 Magnet Control (LabVIEW)
 if isfield(Inst_CFG,'Cell12_MAG_Use') && isfield(Inst_CFG.Cell12_MAG_Use,'enable') && ~isempty(Inst_CFG.Cell12_MAG_Use.enable) && Inst_CFG.Cell12_MAG_Use.enable
@@ -150,11 +166,19 @@ if isfield(Inst_CFG,'Cell12_MAG_Use') && isfield(Inst_CFG.Cell12_MAG_Use,'enable
         mag = actxserver('LabVIEW.Application');
 
         baseDir = strtrim(userpath);
-        viSETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\Cell12_MAG_Signaling.vi'));
-        !sm\channels\vi\Cell12_MAG_Signaling.vi
-        viGETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\Cell12_PS_Control_Remote.vi'));
-        !sm\channels\vi\Cell16_MAG_Signaling.vi
 
+        % --- VI paths (relative to userpath) ---
+        viSETB_path = fullfile(baseDir, 'sm', 'channels', 'vi', 'Cell12_MAG_Signaling.vi');
+        viGETB_path = fullfile(baseDir, 'sm', 'channels', 'vi', 'Cell12_PS_Control_Remote.vi');
+
+        % --- Get VI references & open the VIs (for visibility) ---
+        viSETB = invoke(mag, 'GetVIReference', viSETB_path);
+        winopen(viSETB_path);
+
+        viGETB = invoke(mag, 'GetVIReference', viGETB_path);
+        winopen(viGETB_path);
+
+        % --- Register instrument & channels ---
         ind = smloadinst('Cell12_MAG', [], 'None');
         smdata.inst(ind).name = 'Cell12_MAG';
         smaddchannel('Cell12_MAG','Field','B',[-35,35,Inf,1]);
@@ -166,22 +190,40 @@ if isfield(Inst_CFG,'Cell12_MAG_Use') && isfield(Inst_CFG.Cell12_MAG_Use,'enable
     end
 end
 
+
+
 %====================== SR830_1: LockIn ======================
 if isfield(Inst_CFG,'SR830_1') && has_transport_fields(Inst_CFG.SR830_1)
     try
         [ind, how] = smloadinst_by_cfg('SR830_Ramp', Inst_CFG.SR830_1, Inst_CFG.GPIB);
+
+        % GPIB-only buffer/EOS (before open)
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
         smopen(ind);
 
         smdata.inst(ind).name    = 'SR830_1';
         smdata.inst(ind).cntrlfn = @smcSR830_Ramp;
         fprintf('[SR830_1] %s\n', how);
 
-        smaddchannel('SR830_1','X', 'Isd_1',   [-Inf, Inf, Inf, 1e6]);
-        smaddchannel('SR830_1','Y', 'Isd_Y_1', [-Inf, Inf, Inf, 1e6]);
-        smaddchannel('SR830_1','OUT1','AUX_OUT1',[-10,10,0.001,1]);
-        smaddchannel('SR830_1','DATA1','Iac1-buf_1');
-        smaddchannel('SR830_1','DATA2','Iac1-phase-buf_1');
-    catch err
+        smaddchannel('SR830_1','X','X',[-Inf, Inf, Inf, 1e6]);
+        smaddchannel('SR830_1','Y','Y',[-Inf, Inf, Inf, 1e6]);
+        % smaddchannel('SR830_1','R','R',[-Inf, Inf, Inf, 1e6]);
+        % smaddchannel('SR830_1','THETA','Theta',[-180, 180, 1, 1]);
+        smaddchannel('SR830_1','FREQ','Freq830',[0, 102000, Inf, 1]);
+        smaddchannel('SR830_1','VREF','Vref',[0.004, 5, 1, 1]);
+        % smaddchannel('SR830_1','IN1','AUX_IN1',[-10, 10, 0.001, 1]);
+        % smaddchannel('SR830_1','IN2','AUX_IN2',[-10, 10, 0.001, 1]);
+        % smaddchannel('SR830_1','IN3','AUX_IN3',[-10, 10, 0.001, 1]);
+        % smaddchannel('SR830_1','IN4','AUX_IN4',[-10, 10, 0.001, 1]);
+        % smaddchannel('SR830_1','OUT1','AUX_OUT1',[-10, 10, 0.001, 1]);
+        % smaddchannel('SR830_1','OUT2','AUX_OUT2',[-10, 10, 0.001, 1]);
+        % smaddchannel('SR830_1','OUT3','AUX_OUT3',[-10, 10, 0.001, 1]);
+        % smaddchannel('SR830_1','OUT4','AUX_OUT4',[-10, 10, 0.001, 1]);
+        smaddchannel('SR830_1','SENS','Sensitivity',[2e-9, 1, Inf, 1]);
+        % smaddchannel('SR830_1','TAU','TimeConst',[10e-6, 3e4, Inf, 1]);
+        % smaddchannel('SR830_1','SYNC','Sync',[0,1,1,1]);
+        smaddchannel('SR830_1','DATA1','X-buf');
+        smaddchannel('SR830_1','DATA2','Phase-buf');
         fprintf(['*ERROR* SR830_1: ' err.identifier ': ' err.message '\n']);
     end
 end
@@ -190,6 +232,9 @@ end
 if isfield(Inst_CFG,'SR830_2') && has_transport_fields(Inst_CFG.SR830_2)
     try
         [ind, how] = smloadinst_by_cfg('SR830_Ramp', Inst_CFG.SR830_2, Inst_CFG.GPIB);
+
+        % GPIB-only buffer/EOS (before open)
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
         smopen(ind);
 
         smdata.inst(ind).name    = 'SR830_2';
@@ -209,6 +254,9 @@ end
 if isfield(Inst_CFG,'SR830_3') && has_transport_fields(Inst_CFG.SR830_3)
     try
         [ind, how] = smloadinst_by_cfg('SR830_Ramp', Inst_CFG.SR830_3, Inst_CFG.GPIB);
+
+        % GPIB-only buffer/EOS (before open)
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
         smopen(ind);
 
         smdata.inst(ind).name    = 'SR830_3';
@@ -228,6 +276,9 @@ end
 if isfield(Inst_CFG,'SR830_4') && has_transport_fields(Inst_CFG.SR830_4)
     try
         [ind, how] = smloadinst_by_cfg('SR830_Ramp', Inst_CFG.SR830_4, Inst_CFG.GPIB);
+
+        % GPIB-only buffer/EOS (before open)
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
         smopen(ind);
 
         smdata.inst(ind).name    = 'SR830_4';
@@ -247,15 +298,18 @@ end
 if isfield(Inst_CFG,'K2400_1') && has_transport_fields(Inst_CFG.K2400_1)
     try
         [ind, how] = smloadinst_by_cfg('K2400_Ramp', Inst_CFG.K2400_1, Inst_CFG.GPIB);
+
+        % GPIB-only buffer/EOS (before open)
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
+
         smopen(ind);
 
         smdata.inst(ind).name    = 'K2400_1';
         smdata.inst(ind).cntrlfn = @smcK2400_Ramp;
         fprintf('[K2400_1] %s\n', how);
 
-        set(smdata.inst(ind).data.inst,'inputbuffersize',2^18);
-        set(smdata.inst(ind).data.inst,'outputbuffersize',2^10);
-        set(smdata.inst(ind).data.inst,'eosmode','read&write');
+        % (Optional) safe re-apply (wrapped) in case driver resets on open
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
 
         smaddchannel('K2400_1','V',     'V1',     [-10, 10, Inf, 1]);
         smaddchannel('K2400_1','I',     'I1',     [-Inf, Inf, Inf, 1e6]);
@@ -286,15 +340,18 @@ end
 if isfield(Inst_CFG,'K2400_2') && has_transport_fields(Inst_CFG.K2400_2)
     try
         [ind, how] = smloadinst_by_cfg('K2400_Ramp', Inst_CFG.K2400_2, Inst_CFG.GPIB);
+
+        % GPIB-only buffer/EOS (before open)
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
+
         smopen(ind);
 
         smdata.inst(ind).name    = 'K2400_2';
         smdata.inst(ind).cntrlfn = @smcK2400_Ramp;
         fprintf('[K2400_2] %s\n', how);
 
-        set(smdata.inst(ind).data.inst,'inputbuffersize',2^18);
-        set(smdata.inst(ind).data.inst,'outputbuffersize',2^10);
-        set(smdata.inst(ind).data.inst,'eosmode','read&write');
+        % Safe re-apply
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
 
         smaddchannel('K2400_2','V',     'V2',     [-10, 10, Inf, 1]);
         smaddchannel('K2400_2','I',     'I2',     [-Inf, Inf, Inf, 1e6]);
@@ -325,15 +382,18 @@ end
 if isfield(Inst_CFG,'K2400_3') && has_transport_fields(Inst_CFG.K2400_3)
     try
         [ind, how] = smloadinst_by_cfg('K2400_Ramp', Inst_CFG.K2400_3, Inst_CFG.GPIB);
+
+        % GPIB-only buffer/EOS (before open)
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
+
         smopen(ind);
 
         smdata.inst(ind).name    = 'K2400_3';
         smdata.inst(ind).cntrlfn = @smcK2400_Ramp;
         fprintf('[K2400_3] %s\n', how);
 
-        set(smdata.inst(ind).data.inst,'inputbuffersize',2^18);
-        set(smdata.inst(ind).data.inst,'outputbuffersize',2^10);
-        set(smdata.inst(ind).data.inst,'eosmode','read&write');
+        % Safe re-apply
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
 
         smaddchannel('K2400_3','V',     'V3',     [-10, 10, Inf, 1]);
         smaddchannel('K2400_3','I',     'I3',     [-Inf, Inf, Inf, 1e6]);
@@ -364,11 +424,18 @@ end
 if isfield(Inst_CFG,'K2450') && has_transport_fields(Inst_CFG.K2450)
     try
         [ind, how] = smloadinst_by_cfg('K2450_Ramp', Inst_CFG.K2450, Inst_CFG.GPIB);
+
+        % GPIB-only buffer/EOS (before open)
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
+
         smopen(ind);
 
         smdata.inst(ind).name    = 'K2450';
         smdata.inst(ind).cntrlfn = @smcK2450_Ramp;
         fprintf('[K2450] %s\n', how);
+
+        % Safe re-apply
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
 
         smaddchannel('K2450','Vg',     'Vg',     [-10, 10, Inf, 1]);
         smaddchannel('K2450','Ig',     'Ig',     [-Inf, Inf, Inf, 1e6]);
@@ -376,6 +443,23 @@ if isfield(Inst_CFG,'K2450') && has_transport_fields(Inst_CFG.K2450)
 
         fprintf(smdata.inst(ind).data.inst,'*rst');
         fprintf(smdata.inst(ind).data.inst,'*cls');
+
+        if isfield(Inst_CFG,'K2450') && isfield(Inst_CFG.K2450,'mode') && strcmpi(Inst_CFG.K2450.mode,'Voltage')
+            fprintf(smdata.inst(ind).data.inst,':SOURce:FUNCtion VOLTage');
+            fprintf(smdata.inst(ind).data.inst,':SENSe:CURRent:RANGe 1e-6');
+            fprintf(smdata.inst(ind).data.inst,':SOURce:VOLTage:ILIMit 1e-7');
+            fprintf(smdata.inst(ind).data.inst,':source:delay 0.0');
+            fprintf(smdata.inst(ind).data.inst,':source:voltage:range:auto 1');
+        elseif isfield(Inst_CFG,'K2450') && isfield(Inst_CFG.K2450,'mode') && strcmpi(Inst_CFG.K2450.mode,'Current')
+            fprintf(smdata.inst(ind).data.inst,':SOURce:FUNCtion CURRent');
+            fprintf(smdata.inst(ind).data.inst,':SOURce:CURRent:VLIMit 1');
+            fprintf(smdata.inst(ind).data.inst,':sense:voltage:range 10');
+            fprintf(smdata.inst(ind).data.inst,':source:delay 0.0');
+            fprintf(smdata.inst(ind).data.inst,':source:current:range:auto 1');
+        end
+
+        fprintf(smdata.inst(ind).data.inst,':output on');
+        fprintf(smdata.inst(ind).data.inst,':count 1;:trig:cont rest');
     catch err
         fprintf(['*ERROR* K2450: ' err.identifier ': ' err.message '\n']);
     end
@@ -385,11 +469,18 @@ end
 if isfield(Inst_CFG,'K2450_2') && has_transport_fields(Inst_CFG.K2450_2)
     try
         [ind, how] = smloadinst_by_cfg('K2450_Ramp', Inst_CFG.K2450_2, Inst_CFG.GPIB);
+
+        % GPIB-only buffer/EOS (before open)
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
+
         smopen(ind);
 
         smdata.inst(ind).name    = 'K2450_2';
         smdata.inst(ind).cntrlfn = @smcK2450_Ramp;
         fprintf('[K2450_2] %s\n', how);
+
+        % Safe re-apply
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
 
         smaddchannel('K2450_2','Vg',     'Vbg',     [-10, 10, Inf, 1]);
         smaddchannel('K2450_2','Ig',     'Ibg',     [-Inf, Inf, Inf, 1e6]);
@@ -397,6 +488,23 @@ if isfield(Inst_CFG,'K2450_2') && has_transport_fields(Inst_CFG.K2450_2)
 
         fprintf(smdata.inst(ind).data.inst,'*rst');
         fprintf(smdata.inst(ind).data.inst,'*cls');
+
+        if isfield(Inst_CFG,'K2450_2') && isfield(Inst_CFG.K2450_2,'mode') && strcmpi(Inst_CFG.K2450_2.mode,'Voltage')
+            fprintf(smdata.inst(ind).data.inst,':SOURce:FUNCtion VOLTage');
+            fprintf(smdata.inst(ind).data.inst,':SENSe:CURRent:RANGe 1e-6');
+            fprintf(smdata.inst(ind).data.inst,':SOURce:VOLTage:ILIMit 1e-7');
+            fprintf(smdata.inst(ind).data.inst,':source:delay 0.0');
+            fprintf(smdata.inst(ind).data.inst,':source:voltage:range:auto 1');
+        elseif isfield(Inst_CFG,'K2450_2') && isfield(Inst_CFG.K2450_2,'mode') && strcmpi(Inst_CFG.K2450_2.mode,'Current')
+            fprintf(smdata.inst(ind).data.inst,':SOURce:FUNCtion CURRent');
+            fprintf(smdata.inst(ind).data.inst,':SOURce:CURRent:VLIMit 1');
+            fprintf(smdata.inst(ind).data.inst,':sense:voltage:range 10');
+            fprintf(smdata.inst(ind).data.inst,':source:delay 0.0');
+            fprintf(smdata.inst(ind).data.inst,':source:current:range:auto 1');
+        end
+
+        fprintf(smdata.inst(ind).data.inst,':output on');
+        fprintf(smdata.inst(ind).data.inst,':count 1;:trig:cont rest');
     catch err
         fprintf(['*ERROR* K2450_2: ' err.identifier ': ' err.message '\n']);
     end
@@ -406,6 +514,7 @@ end
 if isfield(Inst_CFG,'Magnet') && has_transport_fields(Inst_CFG.Magnet)
     try
         [ind, how] = smloadinst_by_cfg('CryoLtd', Inst_CFG.Magnet, Inst_CFG.GPIB);
+        % (no special GPIB props needed here)
         smopen(ind);
         smdata.inst(ind).name = 'Magnet';
         fprintf('[Magnet CryoLtd] %s\n', how);
@@ -421,14 +530,17 @@ end
 if isfield(Inst_CFG,'MagnetK2400') && has_transport_fields(Inst_CFG.MagnetK2400)
     try
         [ind, how] = smloadinst_by_cfg('K2400', Inst_CFG.MagnetK2400, Inst_CFG.GPIB);
+
+        % GPIB-only buffer/EOS (before open)
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
+
         smopen(ind);
 
         smdata.inst(ind).name = 'MagnetSource';
         fprintf('[MagnetSource K2400] %s\n', how);
 
-        set(smdata.inst(ind).data.inst,'inputbuffersize',2^18);
-        set(smdata.inst(ind).data.inst,'outputbuffersize',2^10);
-        set(smdata.inst(ind).data.inst,'eosmode','read&write');
+        % Safe re-apply
+        apply_gpib_buffers(smdata.inst(ind).data.inst, how);
 
         fprintf(smdata.inst(ind).data.inst,'*RST');
         fprintf(smdata.inst(ind).data.inst,':sour:func curr');
@@ -547,119 +659,218 @@ function tf = has_transport_fields(cfg)
 end
 
 function [ind, via] = smloadinst_by_cfg(driverName, cfg, gpibCfg)
-% smloadinst_by_cfg
-% Choose transport strictly from fields in cfg and call smloadinst with the proper signature.
+% smloadinst_by_cfg  (patched)
+% Choose transport strictly from fields in cfg, rewrite the saved
+% sminst_<driverName> constructor.fn/args to match that transport,
+% then call smloadinst with the correct signature.
+%
 % Priority: USB/VISA -> GPIB -> TCP -> Serial
-% Inputs:
-%   driverName : string, e.g. 'IPSM', 'SR830_Ramp', 'K2400_Ramp'
-%   cfg        : struct for that instrument (fields like Usb/usb/Visa/resource/Gpib/gpib_addr/Tcp/Port/Serial/Com/enable)
-%   gpibCfg    : struct with fields gpibCfg.board (e.g., 'ni') and gpibCfg.index (e.g., 0)
-% Outputs:
-%   ind : instrument index returned by smloadinst
-%   via : short description of selected transport (for logs)
+%
+% cfg supports: Usb/usb/Visa/visa/Resource/resource, Gpib/gpib_addr,
+%               Tcp/Port, Serial/Com, optional .enable
 
     if nargin < 3 || isempty(gpibCfg)
         gpibCfg.board = 'ni';
         gpibCfg.index = 0;
     end
 
-    ind = [];
-    via = '';
+    ind = []; via = '';
 
-    % Optional: honor an enable toggle if present
+    % Respect optional enable gate
     if isfield(cfg,'enable') && ~isempty(cfg.enable) && ~logical(cfg.enable)
         via = 'disabled';
         error('smloadinst_by_cfg:Disabled','Instrument disabled by cfg.enable=false.');
     end
 
-    % ---------------- USB/VISA ----------------
-    if (isfield(cfg,'usb') && ~isempty(cfg.usb)) || ...
-       (isfield(cfg,'Usb') && ~isempty(cfg.Usb)) || ...
-       (isfield(cfg,'visa') && ~isempty(cfg.visa)) || ...
-       (isfield(cfg,'Visa') && ~isempty(cfg.Visa)) || ...
-       (isfield(cfg,'resource') && ~isempty(cfg.resource)) || ...
-       (isfield(cfg,'Resource') && ~isempty(cfg.Resource))
-
-        rn = '';
-        if isfield(cfg,'usb')      && ~isempty(cfg.usb),      rn = cfg.usb;      end
-        if isfield(cfg,'Usb')      && ~isempty(cfg.Usb),      rn = cfg.Usb;      end
-        if isfield(cfg,'visa')     && ~isempty(cfg.visa),     rn = cfg.visa;     end
-        if isfield(cfg,'Visa')     && ~isempty(cfg.Visa),     rn = cfg.Visa;     end
-        if isfield(cfg,'resource') && ~isempty(cfg.resource), rn = cfg.resource; end
-        if isfield(cfg,'Resource') && ~isempty(cfg.Resource), rn = cfg.Resource; end
-
-        ind = smloadinst(driverName, [], 'visa', rn);
+    % -------- VISA / USBTMC (preferred when present) --------
+    if hasval(cfg,'usb') || hasval(cfg,'Usb') || hasval(cfg,'visa') || hasval(cfg,'Visa') || hasval(cfg,'resource') || hasval(cfg,'Resource')
+        rn = firstval(cfg, {'usb','Usb','visa','Visa','resource','Resource'});
+        % Patch sminst to VISA beforehand
+        patchedFile = patch_sminst(driverName, 'visa', {rn});
+        vendor = pick_visa_vendor(); % 'keysight' | 'agilent' | 'ni'
+        ind = smloadinst(patchedFile, [], vendor, rn);
         via = sprintf('VISA (%s)', rn);
-        return;
+        return
     end
 
-    % ---------------- GPIB ----------------
-    if (isfield(cfg,'gpib_addr') && ~isempty(cfg.gpib_addr)) || ...
-       (isfield(cfg,'Gpib') && ~isempty(cfg.Gpib))
-
-        addr = [];
+    % -------- GPIB --------
+    if hasval(cfg,'gpib_addr') || hasval(cfg,'Gpib')
+        addr  = [];
         board = gpibCfg.board;
         index = gpibCfg.index;
 
-        if isfield(cfg,'gpib_addr') && ~isempty(cfg.gpib_addr)
-            addr = cfg.gpib_addr;
-        end
-        if isfield(cfg,'Gpib') && ~isempty(cfg.Gpib)
+        if hasval(cfg,'gpib_addr'), addr = cfg.gpib_addr; end
+        if hasval(cfg,'Gpib')
             if isstruct(cfg.Gpib)
-                % Allow struct form: Gpib.board / Gpib.index / Gpib.addr
-                if isfield(cfg.Gpib,'board') && ~isempty(cfg.Gpib.board), board = cfg.Gpib.board; end
-                if isfield(cfg.Gpib,'index') && ~isempty(cfg.Gpib.index), index = cfg.Gpib.index; end
-                if isfield(cfg.Gpib,'addr')  && ~isempty(cfg.Gpib.addr),  addr  = cfg.Gpib.addr;  end
+                if hasval(cfg.Gpib,'board'), board = cfg.Gpib.board; end
+                if hasval(cfg.Gpib,'index'), index = cfg.Gpib.index; end
+                if hasval(cfg.Gpib,'addr'),  addr  = cfg.Gpib.addr;  end
             else
                 addr = cfg.Gpib;
             end
         end
 
-        ind = smloadinst(driverName, [], board, index, addr);
+        % Patch sminst to GPIB beforehand
+        patchedFile = patch_sminst(driverName, 'gpib', {index, addr});
+        ind = smloadinst(patchedFile, [], board, index, addr);
         via = sprintf('GPIB (%s,%d,%s)', char(string(board)), index, char(string(addr)));
-        return;
+        return
     end
 
-    % ---------------- TCP ----------------
-    if (isfield(cfg,'tcp') && ~isempty(cfg.tcp)) || ...
-       (isfield(cfg,'Tcp') && ~isempty(cfg.Tcp))
+    % -------- TCP (RAW socket, e.g. :5025) --------
+    if hasval(cfg,'tcp') || hasval(cfg,'Tcp')
         hp = '';
-        if isfield(cfg,'tcp') && ~isempty(cfg.tcp), hp = cfg.tcp; end
-        if isfield(cfg,'Tcp') && ~isempty(cfg.Tcp), hp = cfg.Tcp; end
-        if isfield(cfg,'Port') && ~isempty(cfg.Port) && ~contains(string(hp),':')
+        if hasval(cfg,'tcp'), hp = cfg.tcp; end
+        if hasval(cfg,'Tcp'), hp = cfg.Tcp; end
+        if hasval(cfg,'Port') && ~contains(string(hp),':')
             hp = sprintf('%s:%d', char(string(hp)), cfg.Port);
         end
 
-        ind = smloadinst(driverName, [], 'tcpclient', char(string(hp)));
+        % Patch sminst to tcpclient beforehand
+        patchedFile = patch_sminst(driverName, 'tcpclient', {hp});
+        ind = smloadinst(patchedFile, [], 'tcpclient', char(string(hp)));
         via = sprintf('TCP (%s)', char(string(hp)));
-        return;
+        return
     end
 
-    % ---------------- Serial ----------------
-    if (isfield(cfg,'serial') && ~isempty(cfg.serial)) || ...
-       (isfield(cfg,'Serial') && ~isempty(cfg.Serial)) || ...
-       (isfield(cfg,'Com')    && ~isempty(cfg.Com))
+    % -------- Serial (COMx) --------
+    if hasval(cfg,'serial') || hasval(cfg,'Serial') || hasval(cfg,'Com')
         com = '';
-        if isfield(cfg,'serial') && ~isempty(cfg.serial), com = cfg.serial; end
-        if isfield(cfg,'Serial') && ~isempty(cfg.Serial), com = cfg.Serial; end
-        if isfield(cfg,'Com')    && ~isempty(cfg.Com),    com = cfg.Com;    end
+        if hasval(cfg,'serial'), com = cfg.serial; end
+        if hasval(cfg,'Serial'), com = cfg.Serial; end
+        if hasval(cfg,'Com'),    com = cfg.Com;    end
         if isnumeric(com)
             com = sprintf('COM%d', com);
         else
             s = string(com);
-            if ~startsWith(upper(s),'COM')
-                com = char("COM" + s); % allow '5' etc.
-            else
-                com = char(s);
-            end
+            if ~startsWith(upper(s),'COM'), com = char("COM" + s); else, com = char(s); end
         end
 
-        ind = smloadinst(driverName, [], 'serial', com);
+        % Patch sminst to serial beforehand
+        patchedFile = patch_sminst(driverName, 'serial', {com});
+        ind = smloadinst(patchedFile, [], 'serial', com);
         via = sprintf('Serial (%s)', com);
-        return;
+        return
     end
 
-    % ---------------- Nothing matched ----------------
+    % -------- Nothing matched --------
     error('smloadinst_by_cfg:NoTransport', ...
-          'No transport field set for driver "%s". Set one of Usb/Visa/resource, Gpib/gpib_addr, Tcp(+Port), or Serial/Com.', driverName);
+          'No transport for "%s". Set one of Usb/Visa/resource, Gpib/gpib_addr, Tcp(+Port), or Serial/Com.', driverName);
+
+% ==== helpers ====
+
+    function tf = hasval(s, f)
+        tf = isfield(s,f) && ~isempty(s.(f));
+    end
+
+    function v = firstval(s, keys)
+        v = '';
+        for k = 1:numel(keys)
+            if isfield(s, keys{k}) && ~isempty(s.(keys{k}))
+                v = s.(keys{k});
+                return
+            end
+        end
+    end
+
+    function vendor = pick_visa_vendor()
+        % Choose an installed VISA adaptor (order preference).
+        vendor = 'ni';
+        try
+            info = instrhwinfo('visa'); % deprecated but available
+            prefs = {'keysight','agilent','ni'};
+            for i = 1:numel(prefs)
+                if any(strcmpi(info.InstalledAdaptors, prefs{i}))
+                    vendor = prefs{i}; break
+                end
+            end
+        catch
+            % keep 'ni'
+        end
+    end
+
+    function patchedPath = patch_sminst(name, kind, argsCell)
+        % Load sminst_<name>, rewrite constructor.fn/args, save as
+        % a temp "sminst_patched_<name>.mat" and return that path.
+        %
+        % kind in {'visa','gpib','serial','tcpclient'}
+        %
+        % NOTE: We do not modify your original file on disk.
+
+        % Locate the original
+        cand = {['sminst_', name], ['sminst_', name, '.mat']};
+        orig = '';
+        for c = 1:numel(cand)
+            p = which(cand{c});
+            if ~isempty(p), orig = p; break, end
+        end
+        if isempty(orig)
+            % Fall back: smloadinst will try to resolve; but we cannot patch.
+            patchedPath = ['sminst_', name];
+            warning('patch_sminst:NotFound', 'Could not find sminst_%s on path; proceeding without patch.', name);
+            return
+        end
+
+        S = load(orig);  % must contain S.constructor and S.inst
+
+        % Rewrite constructor.fn and args
+        switch lower(kind)
+            case 'visa'
+                S.constructor.fn   = @visa;       % legacy VISA object (vendor supplied via smloadinst adaptor arg)
+                S.constructor.args = argsCell;    % {'USB0::...::INSTR'}
+
+            case 'gpib'
+                S.constructor.fn   = @gpib;       % vendor supplied via smloadinst adaptor arg
+                S.constructor.args = argsCell;    % {index, addr}
+
+            case 'serial'
+                S.constructor.fn   = @serial;
+                S.constructor.args = argsCell;    % {'COMx'}
+
+            case 'tcpclient'
+                % smloadinst has a dedicated tcpclient branch,
+                % but we still reflect it here for clarity.
+                S.constructor.fn   = @tcpclient;
+                S.constructor.args = argsCell;    % {'host:port'}
+
+            otherwise
+                error('patch_sminst:UnknownKind','Unknown kind "%s".', kind);
+        end
+
+        % Save patched copy (temp dir, but name must contain 'sminst_')
+        patchedPath = fullfile(tempdir, ['sminst_patched_', name, '.mat']);
+        save(patchedPath, '-struct', 'S');
+    end
 end
+
+
+function apply_gpib_buffers(obj, via)
+% Apply buffer sizes (and EOS where appropriate) for GPIB, VISA/USB, and Serial.
+% Safe to call before or after smopen; property sets are try/catch guarded.
+
+    v = upper(char(string(via)));
+
+    % -------- GPIB (original behavior) --------
+    if strncmp(v, 'GPIB', 4)
+        try, set(obj, 'inputbuffersize',  2^18); end  % ~262 kB
+        try, set(obj, 'outputbuffersize', 2^10); end  % 1 kB
+        if isprop(obj, 'EOSMode')
+            try, set(obj, 'eosmode', 'read&write'); end
+        end
+
+    % -------- VISA / USBTMC (covers "VISA (...)" and "USB...") --------
+    elseif strncmp(v, 'VISA', 4) || contains(v, 'USB')
+        try, set(obj, 'InputBufferSize',  2^18); end
+        try, set(obj, 'OutputBufferSize', 2^10); end
+        if isprop(obj, 'EOSMode')
+            try, set(obj, 'eosmode', 'read&write'); end
+        end
+
+    % -------- Serial (covers "Serial (...)" and "COMx") --------
+    elseif strncmp(v, 'SERIAL', 6) || contains(v, 'COM')
+        try, set(obj, 'InputBufferSize',  2^18); end
+        try, set(obj, 'OutputBufferSize', 2^10); end
+        % No EOS for serial by default
+    end
+end
+

@@ -985,31 +985,13 @@ function [ind, via] = smloadinst_by_cfg(driverName, cfg, gpibCfg)
 end
 
 function apply_gpib_buffers(obj, via)
-% Apply buffer sizes (and EOS where appropriate) for GPIB, VISA/USB, and Serial.
-% Safe to call before or after smopen; property sets are try/catch guarded.
-
-    v = upper(char(string(via)));
-
-    % -------- GPIB (original behavior) --------
-    if strncmp(v, 'GPIB', 4)
-        try, set(obj, 'inputbuffersize',  2^18); end  % ~262 kB
-        try, set(obj, 'outputbuffersize', 2^10); end  % 1 kB
+% Apply buffer sizes and EOS only when transport is GPIB.
+% Safe to call before/after smopen. Guards against missing props.
+    if strncmpi(via, 'GPIB', 4)
+        try, set(obj, 'inputbuffersize',  2^18); end   % ~262 kB
+        try, set(obj, 'outputbuffersize', 2^10); end   % 1 kB
         if isprop(obj, 'EOSMode')
             try, set(obj, 'eosmode', 'read&write'); end
         end
-
-    % -------- VISA / USBTMC (covers "VISA (...)" and "USB...") --------
-    elseif strncmp(v, 'VISA', 4) || contains(v, 'USB')
-        try, set(obj, 'InputBufferSize',  2^18); end
-        try, set(obj, 'OutputBufferSize', 2^10); end
-        if isprop(obj, 'EOSMode')
-            try, set(obj, 'eosmode', 'read&write'); end
-        end
-
-    % -------- Serial (covers "Serial (...)" and "COMx") --------
-    elseif strncmp(v, 'SERIAL', 6) || contains(v, 'COM')
-        try, set(obj, 'InputBufferSize',  2^18); end
-        try, set(obj, 'OutputBufferSize', 2^10); end
-        % No EOS for serial by default
     end
 end

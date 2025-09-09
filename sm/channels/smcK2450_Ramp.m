@@ -29,13 +29,13 @@ switch ic(2) % Channels
     case 1 %write operation
         %fprintf(smdata.inst(ic(1)).data.inst,setupcmd);
             if smdata.ramp == 1
-                fprintf(smdata.inst(ic(1)).data.inst,':OUTPut:STATe ON ');
+                % fprintf(smdata.inst(ic(1)).data.inst,':OUTPut:STATe ON ');
                 cmd = sprintf(':SOURce:VOLTage %g', val);
                 fprintf(smdata.inst(ic(1)).data.inst, cmd);
                 
             else
-                KO = query(smdata.inst(ic(1)).data.inst, ':abort;:sour:volt?', '%s\n', '%g');
-                val = KO(1);
+                cmd = sprintf(':SOURce:VOLTage %g', val);
+                fprintf(smdata.inst(ic(1)).data.inst, cmd);
                 % Resume continuous updating
                 fprintf(smdata.inst(ic(1)).data.inst, 'count 1;:trig:cont REST');
                 pause(0.01);
@@ -310,10 +310,10 @@ switch ic(2) % Channels
         
         case 5
         % set planned points & derived ramp time if you need it
-        fclose(inst);                 % 
-        inst.InputBufferSize = 1e6;   % Buffersize 1 MB
-        inst.Timeout = 20;            % 
-        fopen(inst);                  % 
+        % fclose(inst);                 % 
+        % inst.InputBufferSize = 1e6;   % Buffersize 1 MB
+        % inst.Timeout = 20;            % 
+        % fopen(inst);                  % 
         smdata.inst(ic(1)).datadim(ic(2)) = val;
         smdata.inst(ic(1)).data.RampPts   = val;
         smdata.inst(ic(1)).data.RampTime  = (val-1)./rate;
