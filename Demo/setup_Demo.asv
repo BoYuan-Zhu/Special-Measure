@@ -102,6 +102,7 @@ if isfield(Inst_CFG,'OITriton') && has_transport_fields(Inst_CFG.OITriton)
     try
         [ind, how] = smloadinst_by_cfg('OITriton', Inst_CFG.OITriton, Inst_CFG.GPIB);
         smdata.inst(ind).name = 'ELSA';
+        % (no GPIB-only props needed here)
         smopen(ind);
         fprintf('[OITriton] Connected via %s\n', how);
 
@@ -116,30 +117,6 @@ if isfield(Inst_CFG,'OITriton') && has_transport_fields(Inst_CFG.OITriton)
         fprintf(['*ERROR* OITriton: ' err.identifier ': ' err.message '\n']);
     end
 end
-
-%========== iPS Magnet LabVIEW Control (toggle via .enable) ==========
-if isfield(Inst_CFG,'IPSM_LV') && isfield(Inst_CFG.IPSM_LV,'enable') && ~isempty(Inst_CFG.IPSM_LV.enable) && Inst_CFG.IPSM_LV.enable
-    try
-        global viSETB;
-        global viGETB;
-        mag = actxserver('LabVIEW.Application');
-
-        baseDir = strtrim(userpath);
-        viSETB = invoke(mag,'GetVIReference', fullfile(baseDir,'vi\OI_IPSM_Signaling.vi'));
-        winopen(fullfile(baseDir,'vi\OI_IPSM_Signaling.vi'));
-
-        viGETB = invoke(mag,'GetVIReference', fullfile(baseDir,'vi\OI_IPSM_Control_Remote.vi'));
-        winopen(fullfile(baseDir,'vi\OI_IPSM_Control_Remote.vi'));
-
-        ind = smloadinst('IPSM_LV', [], 'None');
-        smdata.inst(ind).name = 'IPSM_LV';
-        smaddchannel('IPSM_LV','Field','B',[-5,5,Inf,1]);
-        smaddchannel('IPSM_LV','Brate','Brate',[0,0.15,Inf,1]);
-    catch err
-        fprintf(['*ERROR* IPSM Magnet (LV): ' err.identifier ': ' err.message '\n']);
-    end
-end
-
 
 %================== IPS Mercury (Serial/TCP/etc) =======================
 if isfield(Inst_CFG,'IPS_Mercury') && has_transport_fields(Inst_CFG.IPS_Mercury)
@@ -157,6 +134,28 @@ if isfield(Inst_CFG,'IPS_Mercury') && has_transport_fields(Inst_CFG.IPS_Mercury)
     end
 end
 
+%========== iPS Magnet LabVIEW Control (toggle via .enable) ==========
+if isfield(Inst_CFG,'IPSM_LV') && isfield(Inst_CFG.IPSM_LV,'enable') && ~isempty(Inst_CFG.IPSM_LV.enable) && Inst_CFG.IPSM_LV.enable
+    try
+        global viSETB;
+        global viGETB;
+        mag = actxserver('LabVIEW.Application');
+
+        baseDir = strtrim(userpath);
+        viSETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\Triton_Elsa_Signaling.vi'));
+        viSETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\OI_IPSM_Signaling.vi'));
+        !sm\channels\vi\OI_IPSM_Signaling.vi
+        viGETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\OI_IPSM_Control_Remote.vi'));
+        !sm\channels\vi\OI_IPSM_Signaling.vi
+
+        ind = smloadinst('IPSM_LV', [], 'None');
+        smdata.inst(ind).name = 'IPSM_LV';
+        smaddchannel('IPSM_LV','Field','B',[-5,5,Inf,1]);
+        smaddchannel('IPSM_LV','Brate','Brate',[0,0.15,Inf,1]);
+    catch err
+        fprintf(['*ERROR* IPSM Magnet (LV): ' err.identifier ': ' err.message '\n']);
+    end
+end
 
 %% Cell12 Magnet Control (LabVIEW)
 if isfield(Inst_CFG,'Cell12_MAG_Use') && isfield(Inst_CFG.Cell12_MAG_Use,'enable') && ~isempty(Inst_CFG.Cell12_MAG_Use.enable) && Inst_CFG.Cell12_MAG_Use.enable
@@ -166,19 +165,11 @@ if isfield(Inst_CFG,'Cell12_MAG_Use') && isfield(Inst_CFG.Cell12_MAG_Use,'enable
         mag = actxserver('LabVIEW.Application');
 
         baseDir = strtrim(userpath);
+        viSETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\Cell12_MAG_Signaling.vi'));
+        !sm\channels\vi\Cell12_MAG_Signaling.vi
+        viGETB = invoke(mag,'GetVIReference', fullfile(baseDir,'sm\channels\vi\Cell12_PS_Control_Remote.vi'));
+        !sm\channels\vi\Cell16_MAG_Signaling.vi
 
-        % --- VI paths (relative to userpath) ---
-        viSETB_path = fullfile(baseDir, 'sm', 'channels', 'vi', 'Cell12_MAG_Signaling.vi');
-        viGETB_path = fullfile(baseDir, 'sm', 'channels', 'vi', 'Cell12_PS_Control_Remote.vi');
-
-        % --- Get VI references & open the VIs (for visibility) ---
-        viSETB = invoke(mag, 'GetVIReference', viSETB_path);
-        winopen(viSETB_path);
-
-        viGETB = invoke(mag, 'GetVIReference', viGETB_path);
-        winopen(viGETB_path);
-
-        % --- Register instrument & channels ---
         ind = smloadinst('Cell12_MAG', [], 'None');
         smdata.inst(ind).name = 'Cell12_MAG';
         smaddchannel('Cell12_MAG','Field','B',[-35,35,Inf,1]);
@@ -189,8 +180,6 @@ if isfield(Inst_CFG,'Cell12_MAG_Use') && isfield(Inst_CFG.Cell12_MAG_Use,'enable
         fprintf(['*ERROR* Cell12 Magnet: ' err.identifier ': ' err.message '\n']);
     end
 end
-
-
 
 %====================== SR830_1: LockIn ======================
 if isfield(Inst_CFG,'SR830_1') && has_transport_fields(Inst_CFG.SR830_1)
@@ -205,25 +194,12 @@ if isfield(Inst_CFG,'SR830_1') && has_transport_fields(Inst_CFG.SR830_1)
         smdata.inst(ind).cntrlfn = @smcSR830_Ramp;
         fprintf('[SR830_1] %s\n', how);
 
-        smaddchannel('SR830_1','X','X',[-Inf, Inf, Inf, 1e6]);
-        smaddchannel('SR830_1','Y','Y',[-Inf, Inf, Inf, 1e6]);
-        % smaddchannel('SR830_1','R','R',[-Inf, Inf, Inf, 1e6]);
-        % smaddchannel('SR830_1','THETA','Theta',[-180, 180, 1, 1]);
-        smaddchannel('SR830_1','FREQ','Freq830',[0, 102000, Inf, 1]);
-        smaddchannel('SR830_1','VREF','Vref',[0.004, 5, 1, 1]);
-        % smaddchannel('SR830_1','IN1','AUX_IN1',[-10, 10, 0.001, 1]);
-        % smaddchannel('SR830_1','IN2','AUX_IN2',[-10, 10, 0.001, 1]);
-        % smaddchannel('SR830_1','IN3','AUX_IN3',[-10, 10, 0.001, 1]);
-        % smaddchannel('SR830_1','IN4','AUX_IN4',[-10, 10, 0.001, 1]);
-        % smaddchannel('SR830_1','OUT1','AUX_OUT1',[-10, 10, 0.001, 1]);
-        % smaddchannel('SR830_1','OUT2','AUX_OUT2',[-10, 10, 0.001, 1]);
-        % smaddchannel('SR830_1','OUT3','AUX_OUT3',[-10, 10, 0.001, 1]);
-        % smaddchannel('SR830_1','OUT4','AUX_OUT4',[-10, 10, 0.001, 1]);
-        smaddchannel('SR830_1','SENS','Sensitivity',[2e-9, 1, Inf, 1]);
-        % smaddchannel('SR830_1','TAU','TimeConst',[10e-6, 3e4, Inf, 1]);
-        % smaddchannel('SR830_1','SYNC','Sync',[0,1,1,1]);
-        smaddchannel('SR830_1','DATA1','X-buf');
-        smaddchannel('SR830_1','DATA2','Phase-buf');
+        smaddchannel('SR830_1','X', 'Isd_1',   [-Inf, Inf, Inf, 1e6]);
+        smaddchannel('SR830_1','Y', 'Isd_Y_1', [-Inf, Inf, Inf, 1e6]);
+        smaddchannel('SR830_1','OUT1','AUX_OUT1',[-10,10,0.001,1]);
+        smaddchannel('SR830_1','DATA1','Iac1-buf_1');
+        smaddchannel('SR830_1','DATA2','Iac1-phase-buf_1');
+    catch err
         fprintf(['*ERROR* SR830_1: ' err.identifier ': ' err.message '\n']);
     end
 end
@@ -845,32 +821,13 @@ end
 
 
 function apply_gpib_buffers(obj, via)
-% Apply buffer sizes (and EOS where appropriate) for GPIB, VISA/USB, and Serial.
-% Safe to call before or after smopen; property sets are try/catch guarded.
-
-    v = upper(char(string(via)));
-
-    % -------- GPIB (original behavior) --------
-    if strncmp(v, 'GPIB', 4)
+% Apply buffer sizes and EOS only when transport is GPIB. Safe to call
+% before or after smopen; property sets are try/catch guarded.
+    if strncmpi(via, 'GPIB', 4)
         try, set(obj, 'inputbuffersize',  2^18); end  % ~262 kB
         try, set(obj, 'outputbuffersize', 2^10); end  % 1 kB
         if isprop(obj, 'EOSMode')
             try, set(obj, 'eosmode', 'read&write'); end
         end
-
-    % -------- VISA / USBTMC (covers "VISA (...)" and "USB...") --------
-    elseif strncmp(v, 'VISA', 4) || contains(v, 'USB')
-        try, set(obj, 'InputBufferSize',  2^18); end
-        try, set(obj, 'OutputBufferSize', 2^10); end
-        if isprop(obj, 'EOSMode')
-            try, set(obj, 'eosmode', 'read&write'); end
-        end
-
-    % -------- Serial (covers "Serial (...)" and "COMx") --------
-    elseif strncmp(v, 'SERIAL', 6) || contains(v, 'COM')
-        try, set(obj, 'InputBufferSize',  2^18); end
-        try, set(obj, 'OutputBufferSize', 2^10); end
-        % No EOS for serial by default
     end
 end
-

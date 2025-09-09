@@ -28,15 +28,15 @@ function [val, rate] = smcK2400_Ramp(ic, val, rate)
                         val = KO(1);
                     end
                 case 1 % write
-                    fprintf(smdata.inst(ic(1)).data.inst,':OUTPut ON');
+                    % fprintf(smdata.inst(ic(1)).data.inst,':OUTPut ON');
                     if smdata.ramp == 1
                         cmd = sprintf(':source:volt %g', val);
                         fprintf(smdata.inst(ic(1)).data.inst, cmd);
-                        pause(0.05);
+                        % pause(0.05);
                     else
                          cmd = sprintf(':abort;:source:volt %g;:initiate', val);
                          fprintf(smdata.inst(ic(1)).data.inst, cmd);
-                         pause(0.05);
+                         % pause(0.05);
                     end
                 otherwise
                     error('K2400 driver: Operation not supported');
@@ -125,11 +125,11 @@ function [val, rate] = smcK2400_Ramp(ic, val, rate)
                     smdata.inst(ic(1)).data.RampPts = smdata.inst(ic(1)).datadim(ic(2));
                     val = smdata.inst(ic(1)).data.RampPts;
                 case 5  % set planned points & configure I/O buffer
-                    
-                    fclose(inst); 
-                    inst.InputBufferSize = 1e6; 
-                    inst.Timeout = 20;     
-                    fopen(inst);  
+                    % 
+                    % fclose(inst); 
+                    % inst.InputBufferSize = 1e6; 
+                    % inst.Timeout = 20;     
+                    % fopen(inst);  
                     fprintf(inst, ':ABORt');                  % Abort any ongoing SDM/trigger
                     smdata.inst(ic(1)).datadim(ic(2)) = val;
                     smdata.inst(ic(1)).data.RampPts   = val;
