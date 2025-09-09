@@ -114,7 +114,7 @@ maxInnerLoop = -4;
 % dmm-fast-buf is the buffer channel of K34461A
 % !!!!! Lockin must come first in get channel to avoid time
 % inconsistent of dmm and lockin.
-myChannel = {  'Ig-buf' 'Iac1-buf'  'Iac1-phase-buf'};
+myChannel = {  'Ig-buf' 'Iac1-buf' 'Iac1-phase-buf' };
 
 outerLoopChannel = 'dummy';
 npointsOuterLoop = 11;

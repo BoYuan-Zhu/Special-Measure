@@ -1,4 +1,4 @@
-function [val, rate] = smcSR860(ic, val, rate, ctrl)
+function [val, rate] = smcSR860_Ramp(ic, val, rate, ctrl)
 % [val, rate] = smcSR860(ic, val, rate, ctrl)
 % ctrl: sync (each sample triggered)
 %       trig external trigger starts acq.
@@ -51,7 +51,6 @@ switch ic(2) % Channel
                             * smdata.inst(ic(1)).data.sampint);
                     end
                 end
-                
                 % If npts larger than 4000, need to extract raw data twice
                 % rawdata = [];
                 % if npts/2048 > 1
@@ -80,6 +79,137 @@ switch ic(2) % Channel
                     val = rawdata(2:2:npts*2);
                     smdata.inst(ic(1)).data.currsamp_phase = smdata.inst(ic(1)).data.currsamp_phase +npts;
                 end
+                
+        %%
+        % Add this case to the SR860 driver switch statement, after case 16
+
+       case 17 % Buffer mode
+        inst = smdata.inst(ic(1)).data.inst;
+        
+        switch ic(3)
+            case 3  % one-time configure & arm buffer
+                % Stop any ongoing capture
+                fprintf(inst, 'CAPTURESTOP');
+                
+                % Configure for continuous buffering
+                % Set buffer size to maximum (4096 kb)
+                % Capture both R and theta (mode 2)
+                fprintf(inst, 'CAPTURECFG 2;CAPTURELEN 4096');
+                
+                % Set a reasonable default sample rate if not already configured
+                if ~isfield(smdata.inst(ic(1)).data, 'sampint') || isempty(smdata.inst(ic(1)).data.sampint)
+                    % Use a moderate sample rate (rate index 10 = ~1kHz for most time constants)
+                    fprintf(inst, 'CAPTURERATE 10');
+                    smdata.inst(ic(1)).data.sampint = 1/1000; % approximate
+                end
+                
+                % Reset buffer tracking
+                smdata.inst(ic(1)).data.currsamp_real = 0;
+                smdata.inst(ic(1)).data.currsamp_phase = 0;
+                smdata.inst(ic(1)).data.RampPts = 0;
+                
+                val = []; % nothing to return
+                
+            case 2  % single-shot: trigger one sample into buffer
+                % For SR860, we start capture for a brief moment to get one sample
+                fprintf(inst, 'CAPTURESTART 0, 0');
+                
+                % Wait for at least one sample
+                pause(smdata.inst(ic(1)).data.sampint * 1.5);
+                
+                val = []; % no data returned here
+                
+            case 0  % read out all available points
+                % Check how many bytes are available
+                navail_bytes = query(inst, 'CAPTUREBYTES?', '%s\n', '%d');
+                navail_points = navail_bytes / 8; % 8 bytes per complex sample (R+theta)
+                
+                if navail_points < 1
+                    % Nothing to read
+                    val = [];
+                    return;
+                end
+                
+                % Stop capture to read data
+                fprintf(inst, 'CAPTURESTOP');
+                
+                % Read available data
+                npts_to_read = floor(navail_points);
+                fprintf(inst, 'CAPTUREGET? 0, %g', ceil(npts_to_read * 2 / 256));
+                rawdata = readbinblock(inst, 'single');
+                
+                % Parse the data - rawdata contains interleaved R and theta values
+                if length(rawdata) >= 2 * npts_to_read
+                    % Extract R values (odd indices) and theta values (even indices)
+                    R_vals = rawdata(1:2:2*npts_to_read-1);
+                    theta_vals = rawdata(2:2:2*npts_to_read);
+                    
+                    % Return as structure similar to K2450 format
+                    val.magnitude = R_vals.';  % row vector
+                    val.phase = theta_vals.';  % row vector
+                    val.x = R_vals.' .* cos(theta_vals.' * pi/180);  % convert to X
+                    val.y = R_vals.' .* sin(theta_vals.' * pi/180);  % convert to Y
+                else
+                    val = [];
+                end
+                
+                % Update sample counters
+                smdata.inst(ic(1)).data.currsamp_real = smdata.inst(ic(1)).data.currsamp_real + npts_to_read;
+                smdata.inst(ic(1)).data.currsamp_phase = smdata.inst(ic(1)).data.currsamp_phase + npts_to_read;
+                
+                % Reset buffer tracking
+                smdata.inst(ic(1)).data.RampPts = 0;
+                
+            case 4  % set planned points (similar to K2450 case 4)
+                smdata.inst(ic(1)).data.RampPts = smdata.inst(ic(1)).datadim(ic(2));
+                val = [];
+                
+            case 5  % set planned points and configure sample rate
+                % Set buffer size and timeout like K2450
+                fclose(inst);
+                inst.InputBufferSize = 1e6;   % 1 MB buffer
+                inst.Timeout = 20;            % 20 second timeout
+                fopen(inst);
+                
+                % Configure planned points
+                smdata.inst(ic(1)).datadim(ic(2)) = val;
+                smdata.inst(ic(1)).data.RampPts = val;
+                
+                % Calculate and set appropriate sample rate
+                if nargin > 2 && ~isempty(rate)
+                    maxrate = query(inst, 'CAPTURERATEMAX?', '%s\n', '%g');
+                    
+                    if abs(rate) > maxrate
+                        warning('Requested rate too high, using maximum rate');
+                        rate = maxrate;
+                    end
+                    
+                    % Find appropriate rate index
+                    n = ceil(log2(maxrate / abs(rate)));
+                    n = max(0, min(20, n)); % clamp to valid range
+                    actual_rate = maxrate / (2^n);
+                    
+                    fprintf(inst, 'CAPTURERATE %i', n);
+                    smdata.inst(ic(1)).data.sampint = 1 / actual_rate;
+                    smdata.inst(ic(1)).data.RampTime = (val - 1) / actual_rate;
+                else
+                    % Use existing sample interval
+                    if isfield(smdata.inst(ic(1)).data, 'sampint')
+                        smdata.inst(ic(1)).data.RampTime = (val - 1) * smdata.inst(ic(1)).data.sampint;
+                    end
+                end
+                
+            case 6  % start continuous capture
+                fprintf(inst, 'CAPTURESTART 0, 0');
+                val = [];
+                
+            otherwise
+                error('SR860 driver: Operation not supported for buffer mode (case 17)');
+        end
+        
+
+        %%
+
                 
             case 3
                 fprintf(smdata.inst(ic(1)).data.inst, 'CAPTURESTART 0, 0;');

@@ -670,15 +670,6 @@ for i = 1:totpoints
             smread(scandef(j).readchan);   % only if provided
         end
 
-        
-
-
-
-
-
-
-
-
         if isfield(scandef, 'postfn')
             fncall(scandef(j).postfn, xt);
         end

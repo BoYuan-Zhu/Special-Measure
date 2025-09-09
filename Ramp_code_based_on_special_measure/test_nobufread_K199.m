@@ -15,8 +15,8 @@ smaux.pptMode     = 'ppt';            % 'ppt' or 'pptx'
 %% -------------------- GPIB --------------------
 GPIB_BOARD        = 'ni';
 BOARD_NUM         = 0;
-K2450_GPIB        = 18;  % K2450 GPIB address
-K199_GPIB         = 27;   % K199 GPIB address
+K2450_GPIB        = 19;  % K2450 GPIB address
+K199_GPIB         = 26;   % K199 GPIB address
 
 %% -------------------- Dummy instrument (for outer loop) --------------------
 smloadinst('test');
@@ -47,7 +47,7 @@ try
     smdata.inst(ind_k).cntrlfn = @smcK2450_Ramp;
 
     % Source V (Vg) and Read I (Ig) and buffered Ig
-    smaddchannel('K2450','Vg',     'Vg',     [-10, 10, Inf, 1]);      % source V
+    smaddchannel('K2450','Vbg',     'Vbg',     [-10, 10, Inf, 1]);      % source V
     % smaddchannel('K2450','Ig',     'Ig',     [-Inf, Inf, Inf, 1e6]);  % read I
     % smaddchannel('K2450','Ig-buf', 'Ig-buf');                         % buffered I
 catch err

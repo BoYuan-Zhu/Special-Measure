@@ -27,8 +27,8 @@ smaux.pptMode     = 'ppt';            % 'ppt' or 'pptx'
 %% -------------------- GPIB --------------------
 GPIB_BOARD        = 'ni';
 BOARD_NUM         = 0;
-LockInHigh_GPIB   = 1;   % SR830 GPIB address
-K2450_GPIB        = 18;  % K2450 GPIB address
+LockInHigh_GPIB   = 4;   % SR830 GPIB address
+K2450_GPIB        = 19;  % K2450 GPIB address
 
 %% -------------------- Dummy instrument (for outer loop) --------------------
 smloadinst('test');
